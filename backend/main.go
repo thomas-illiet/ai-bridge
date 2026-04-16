@@ -83,6 +83,7 @@ func main() {
 	recorder := aibpkg.NewGORMRecorder()
 
 	r.GET("/health", handlers.HealthCheck)
+	r.GET("/api/status", handlers.GetStatus(cfg))
 	r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(reg, promhttp.HandlerOpts{})))
 
 	api := r.Group("/api/v1")

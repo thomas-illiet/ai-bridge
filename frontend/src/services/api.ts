@@ -41,6 +41,19 @@ export interface CreateTokenResponse {
   rawToken: string
 }
 
+export interface ServiceStatus {
+  name: string
+  status: 'up' | 'down' | 'disabled'
+  message?: string
+}
+
+export interface StatusResponse {
+  status: 'healthy' | 'degraded'
+  services: ServiceStatus[]
+}
+
+export const getStatus = () => axios.get<StatusResponse>('/api/status')
+
 export const listTokens = () => api.get<{ tokens: ClientToken[] }>('/tokens')
 export const createToken = (name: string) => api.post<CreateTokenResponse>('/tokens', { name })
 export const revokeToken = (id: string) => api.delete(`/tokens/${id}`)

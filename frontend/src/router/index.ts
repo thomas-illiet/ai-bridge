@@ -28,6 +28,11 @@ const router = createRouter({
       component: () => import('@/views/TokensView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/status',
+      name: 'status',
+      component: () => import('@/views/StatusView.vue'),
+    },
   ],
 })
 

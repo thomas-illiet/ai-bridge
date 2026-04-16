@@ -13,6 +13,7 @@ const auth = useAuthStore()
 
     <div class="navbar-links">
       <RouterLink to="/">Home</RouterLink>
+      <RouterLink to="/status">Status</RouterLink>
       <RouterLink v-if="auth.authenticated" to="/dashboard">Dashboard</RouterLink>
       <RouterLink v-if="auth.authenticated" to="/profile">Profile</RouterLink>
       <RouterLink v-if="auth.authenticated" to="/tokens">Tokens</RouterLink>
