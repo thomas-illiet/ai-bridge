@@ -14,8 +14,13 @@ async function fetchStatus() {
     const res = await getStatus()
     data.value = res.data
     error.value = null
-  } catch {
-    error.value = 'Failed to reach the backend'
+  } catch (e: any) {
+    if (e?.response?.data?.services) {
+      data.value = e.response.data
+      error.value = null
+    } else {
+      error.value = 'Failed to reach the backend'
+    }
   } finally {
     loading.value = false
     lastChecked.value = new Date()

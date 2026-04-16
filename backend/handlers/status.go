@@ -43,11 +43,7 @@ func GetStatus(cfg *config.Config) gin.HandlerFunc {
 			}
 		}
 
-		code := http.StatusOK
-		if overall == "degraded" {
-			code = http.StatusServiceUnavailable
-		}
-		c.JSON(code, statusResponse{Status: overall, Services: services})
+		c.JSON(http.StatusOK, statusResponse{Status: overall, Services: services})
 	}
 }
 
