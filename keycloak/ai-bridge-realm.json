@@ -1,0 +1,50 @@
+{
+  "realm": "ai-bridge",
+  "enabled": true,
+  "displayName": "AI Bridge",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "clients": [
+    {
+      "clientId": "ai-bridge-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:80/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:80"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Standard user" },
+      { "name": "admin", "description": "Administrator" }
+    ]
+  },
+  "users": [
+    {
+      "username": "demo",
+      "email": "demo@ai-bridge.local",
+      "firstName": "Demo",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo", "temporary": false }],
+      "realmRoles": ["user"]
+    }
+  ]
+}

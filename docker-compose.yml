@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aibridge
+      POSTGRES_PASSWORD: aibridge
+      POSTGRES_DB: aibridge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aibridge -d aibridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    platform: linux/amd64
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8180
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8180/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8585:8585"
+    environment:
+      SERVER_PORT: "8585"
+      KEYCLOAK_BASE_URL: http://keycloak:8180
+      KEYCLOAK_ISSUER_URL: http://localhost:8180
+      KEYCLOAK_REALM: ai-bridge
+      KEYCLOAK_CLIENT_ID: ai-bridge-frontend
+      ALLOWED_ORIGINS: http://localhost:5173
+      DATABASE_DSN: "host=postgres user=aibridge password=aibridge dbname=aibridge port=5432 sslmode=disable TimeZone=UTC"
+      TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8585/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

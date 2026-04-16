@@ -1,0 +1,14 @@
+# Dependencies
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment files with secrets
+backend/.env
+
+# Go binaries
+backend/server
+
+# OS
+.DS_Store
