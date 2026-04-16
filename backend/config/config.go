@@ -18,6 +18,7 @@ type Config struct {
 	TokenSecret         string
 	AnthropicAPIKey     string
 	OpenAIAPIKey        string
+	OllamaBaseURL       string
 }
 
 func Load() (*Config, error) {
@@ -37,6 +38,7 @@ func Load() (*Config, error) {
 		TokenSecret:       getEnv("TOKEN_SECRET", ""),
 		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
+		OllamaBaseURL:     getEnv("OLLAMA_BASE_URL", ""),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {

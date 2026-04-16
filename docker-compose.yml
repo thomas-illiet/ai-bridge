@@ -51,6 +51,7 @@ services:
       TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
     depends_on:
       keycloak:
         condition: service_healthy

@@ -69,6 +69,13 @@ func main() {
 			aibridge.OpenAIConfig{Key: cfg.OpenAIAPIKey},
 		))
 	}
+	if cfg.OllamaBaseURL != "" {
+		providers = append(providers, aibridge.NewOpenAIProvider(aibridge.OpenAIConfig{
+			Name:    "ollama",
+			BaseURL: strings.TrimRight(cfg.OllamaBaseURL, "/") + "/v1/",
+			Key:     "ollama",
+		}))
+	}
 
 	reg := prometheus.NewRegistry()
 	metrics := aibridge.NewMetrics(reg)
@@ -100,6 +107,7 @@ func main() {
 		aib.Use(middleware.AIBridgeActor())
 		aib.Any("/anthropic/*path", gin.WrapH(bridge))
 		aib.Any("/openai/*path", gin.WrapH(bridge))
+		aib.Any("/ollama/*path", gin.WrapH(bridge))
 	} else {
 		logger.Warn(ctx, "no AI providers configured — set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable the proxy")
 	}
