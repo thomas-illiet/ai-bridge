@@ -59,7 +59,7 @@ func checkDatabase(ctx context.Context) serviceStatus {
 }
 
 func checkKeycloak(client *http.Client, cfg *config.Config) serviceStatus {
-	url := fmt.Sprintf("%s/health/ready", cfg.KeycloakBaseURL)
+	url := fmt.Sprintf("%s/realms/%s", cfg.KeycloakBaseURL, cfg.KeycloakRealm)
 	resp, err := client.Get(url)
 	if err != nil {
 		return serviceStatus{Name: "keycloak", Status: "down", Message: err.Error()}
