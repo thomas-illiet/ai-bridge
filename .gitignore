@@ -10,5 +10,9 @@ backend/.env
 # Go binaries
 backend/server
 
+# IDE
+.idea/
+*.iml
+
 # OS
 .DS_Store

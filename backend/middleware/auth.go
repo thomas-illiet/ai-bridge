@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
+	"github.com/coder/aibridge"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/thomas-illiet/ai-bridge/config"
@@ -107,5 +108,18 @@ func RequireRole(role string) gin.HandlerFunc {
 			}
 		}
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+	}
+}
+
+// AIBridgeActor injects the authenticated user ID into the request context
+// as an aibridge actor, enabling per-user usage recording.
+func AIBridgeActor() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := GetUser(c)
+		if user != nil {
+			ctx := aibridge.AsActor(c.Request.Context(), user.ID, nil)
+			c.Request = c.Request.WithContext(ctx)
+		}
+		c.Next()
 	}
 }

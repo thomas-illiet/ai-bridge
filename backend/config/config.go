@@ -16,6 +16,8 @@ type Config struct {
 	AllowedOrigins      string
 	DatabaseDSN         string
 	TokenSecret         string
+	AnthropicAPIKey     string
+	OpenAIAPIKey        string
 }
 
 func Load() (*Config, error) {
@@ -33,6 +35,8 @@ func Load() (*Config, error) {
 		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
 		DatabaseDSN:       getEnv("DATABASE_DSN", ""),
 		TokenSecret:       getEnv("TOKEN_SECRET", ""),
+		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
+		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {

@@ -49,6 +49,8 @@ services:
       ALLOWED_ORIGINS: http://localhost:5173
       DATABASE_DSN: "host=postgres user=aibridge password=aibridge dbname=aibridge port=5432 sslmode=disable TimeZone=UTC"
       TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
     depends_on:
       keycloak:
         condition: service_healthy
