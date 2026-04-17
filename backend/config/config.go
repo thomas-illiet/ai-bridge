@@ -28,6 +28,7 @@ type Config struct {
 	SMTPFrom              string
 	SMTPTo                string // comma-separated admin emails
 	RoleExpiryIntervalSec int    // how often to check for expired roles (seconds)
+	AppURL                string // public base URL used in email links
 }
 
 func getEnv(key, fallback string) string {
@@ -72,6 +73,7 @@ func Load() (*Config, error) {
 		SMTPFrom:          getEnv("SMTP_FROM", ""),
 		SMTPTo:                getEnv("SMTP_TO", ""),
 		RoleExpiryIntervalSec: getEnvInt("ROLE_EXPIRY_INTERVAL_SEC", 60),
+		AppURL:                getEnv("APP_URL", "http://localhost:5173"),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {

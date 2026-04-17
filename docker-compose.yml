@@ -71,6 +71,7 @@ services:
       SMTP_PORT: "1025"
       SMTP_FROM: "aibridge@localhost"
       SMTP_TO: "${SMTP_TO:-admin@localhost}"
+      APP_URL: "${APP_URL:-http://localhost:5173}"
     depends_on:
       keycloak:
         condition: service_healthy
