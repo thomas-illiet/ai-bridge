@@ -8,7 +8,7 @@ require (
 	github.com/coder/aibridge v1.1.2
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.12.0
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.23.2
