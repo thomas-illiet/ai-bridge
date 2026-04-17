@@ -22,6 +22,7 @@ type statusResponse struct {
 	Services []serviceStatus `json:"services"`
 }
 
+// GetStatus checks all configured services and returns their health.
 func GetStatus(cfg *config.Config) gin.HandlerFunc {
 	client := &http.Client{Timeout: 3 * time.Second}
 
@@ -30,7 +31,6 @@ func GetStatus(cfg *config.Config) gin.HandlerFunc {
 		services := []serviceStatus{
 			checkDatabase(ctx),
 			checkKeycloak(client, cfg),
-			checkAnthropic(client, cfg),
 			checkOpenAI(client, cfg),
 			checkOllama(client, cfg),
 		}
@@ -69,24 +69,6 @@ func checkKeycloak(client *http.Client, cfg *config.Config) serviceStatus {
 		return serviceStatus{Name: "keycloak", Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 	}
 	return serviceStatus{Name: "keycloak", Status: "up"}
-}
-
-func checkAnthropic(client *http.Client, cfg *config.Config) serviceStatus {
-	if cfg.AnthropicAPIKey == "" {
-		return serviceStatus{Name: "anthropic", Status: "disabled"}
-	}
-	req, _ := http.NewRequest(http.MethodGet, "https://api.anthropic.com/v1/models", nil)
-	req.Header.Set("x-api-key", cfg.AnthropicAPIKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-	resp, err := client.Do(req)
-	if err != nil {
-		return serviceStatus{Name: "anthropic", Status: "down", Message: err.Error()}
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return serviceStatus{Name: "anthropic", Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode)}
-	}
-	return serviceStatus{Name: "anthropic", Status: "up"}
 }
 
 func checkOpenAI(client *http.Client, cfg *config.Config) serviceStatus {
