@@ -15,6 +15,8 @@ func AdminGetHistory(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	search := c.Query("search")
 	userID := c.Query("userId")
+	sortBy := c.DefaultQuery("sortBy", "startedAt")
+	sortDir := c.DefaultQuery("sortDir", "desc")
 
 	if page < 1 {
 		page = 1
@@ -36,7 +38,7 @@ func AdminGetHistory(c *gin.Context) {
 		args = append(args, like, like, like)
 	}
 
-	rows, total, err := historyQuery(where, args, page, pageSize)
+	rows, total, err := historyQuery(where, args, page, pageSize, sortBy, sortDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

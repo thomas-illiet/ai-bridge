@@ -6,14 +6,34 @@ import { formatDate, fmtNum, interceptionDuration, providerColor } from '@/utils
 import PaginationBar from '@/components/PaginationBar.vue'
 import HistoryDetailModal from '@/components/HistoryDetailModal.vue'
 
-const rows      = ref<InterceptionRow[]>([])
-const total     = ref(0)
-const page      = ref(1)
-const pageSize  = ref(10)
-const search    = ref('')
-const loading   = ref(false)
-const detail    = ref<InterceptionDetail | null>(null)
+type SortKey = 'provider' | 'model' | 'startedAt' | 'duration' | 'inputTokens' | 'outputTokens'
+
+const rows       = ref<InterceptionRow[]>([])
+const total      = ref(0)
+const page       = ref(1)
+const pageSize   = ref(10)
+const search     = ref('')
+const loading    = ref(false)
+const detail     = ref<InterceptionDetail | null>(null)
 const detailLoad = ref(false)
+const sortBy     = ref<SortKey>('startedAt')
+const sortDir    = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(col: SortKey) {
+  if (sortBy.value === col) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = col
+    sortDir.value = 'desc'
+  }
+  page.value = 1
+  fetchHistory()
+}
+
+function sortIcon(col: SortKey) {
+  if (sortBy.value !== col) return '⇅'
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
 
 let searchTimer: ReturnType<typeof setTimeout>
 watch(search, () => {
@@ -26,14 +46,14 @@ watch(pageSize, () => { page.value = 1; fetchHistory() })
 async function fetchHistory() {
   loading.value = true
   try {
-    const res = await getHistory(page.value, pageSize.value, search.value)
+    const res = await getHistory(page.value, pageSize.value, search.value, sortBy.value, sortDir.value)
     rows.value  = res.data.interceptions
     total.value = res.data.total
   } finally { loading.value = false }
 }
 
 async function openDetail(id: string) {
-  detail.value  = null
+  detail.value     = null
   detailLoad.value = true
   try {
     const res = await getHistoryDetail(id)
@@ -60,12 +80,24 @@ onMounted(fetchHistory)
     <table v-else class="data-table" :class="{ 'table-loading': loading }">
       <thead>
         <tr>
-          <th>Provider</th>
-          <th>Model</th>
-          <th>Started</th>
-          <th>Duration</th>
-          <th class="num">Input</th>
-          <th class="num">Output</th>
+          <th class="sortable" :class="{ active: sortBy === 'provider' }" @click="toggleSort('provider')">
+            Provider <span class="sort-icon">{{ sortIcon('provider') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'model' }" @click="toggleSort('model')">
+            Model <span class="sort-icon">{{ sortIcon('model') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'startedAt' }" @click="toggleSort('startedAt')">
+            Started <span class="sort-icon">{{ sortIcon('startedAt') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'duration' }" @click="toggleSort('duration')">
+            Duration <span class="sort-icon">{{ sortIcon('duration') }}</span>
+          </th>
+          <th class="num sortable" :class="{ active: sortBy === 'inputTokens' }" @click="toggleSort('inputTokens')">
+            Input <span class="sort-icon">{{ sortIcon('inputTokens') }}</span>
+          </th>
+          <th class="num sortable" :class="{ active: sortBy === 'outputTokens' }" @click="toggleSort('outputTokens')">
+            Output <span class="sort-icon">{{ sortIcon('outputTokens') }}</span>
+          </th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -104,9 +136,14 @@ h1 { font-size: 1.75rem; font-weight: 700; margin: 0; }
 .data-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; transition: opacity 0.15s; }
 .data-table.table-loading { opacity: 0.6; pointer-events: none; }
 .data-table th, .data-table td { padding: 0.7rem 1rem; text-align: left; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; }
-.data-table th { background: #f8fafc; font-weight: 600; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.data-table th { background: #f8fafc; font-weight: 600; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 .data-table th.num { text-align: right; }
 .data-table tr:last-child td { border-bottom: none; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: #334155; background: #f1f5f9; }
+.sortable.active { color: #3b82f6; }
+.sort-icon { font-size: 0.7rem; margin-left: 0.25rem; opacity: 0.5; }
+.sortable.active .sort-icon { opacity: 1; }
 .num { text-align: right; font-variant-numeric: tabular-nums; color: #334155; font-weight: 500; }
 .muted { color: #64748b; }
 .model-cell { font-family: monospace; font-size: 0.82rem; color: #334155; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

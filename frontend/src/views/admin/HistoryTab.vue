@@ -6,6 +6,8 @@ import { formatDate, fmtNum, interceptionDuration, providerColor } from '@/utils
 import PaginationBar from '@/components/PaginationBar.vue'
 import HistoryDetailModal from '@/components/HistoryDetailModal.vue'
 
+type SortKey = 'provider' | 'model' | 'startedAt' | 'duration' | 'inputTokens' | 'outputTokens'
+
 interface UserOption { id: string; username: string }
 
 const rows       = ref<InterceptionRow[]>([])
@@ -18,6 +20,24 @@ const loading    = ref(false)
 const users      = ref<UserOption[]>([])
 const detail     = ref<InterceptionDetail | null>(null)
 const detailLoad = ref(false)
+const sortBy     = ref<SortKey>('startedAt')
+const sortDir    = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(col: SortKey) {
+  if (sortBy.value === col) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = col
+    sortDir.value = 'desc'
+  }
+  page.value = 1
+  load()
+}
+
+function sortIcon(col: SortKey) {
+  if (sortBy.value !== col) return '⇅'
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
 
 let searchTimer: ReturnType<typeof setTimeout>
 watch([search, userId], () => {
@@ -30,7 +50,7 @@ watch(pageSize, () => { page.value = 1; load() })
 async function load() {
   loading.value = true
   try {
-    const res = await adminGetHistory(page.value, pageSize.value, search.value, userId.value)
+    const res = await adminGetHistory(page.value, pageSize.value, search.value, userId.value, sortBy.value, sortDir.value)
     rows.value  = res.data.interceptions
     total.value = res.data.total
   } finally { loading.value = false }
@@ -70,8 +90,26 @@ onMounted(async () => {
     <table v-else class="data-table" :class="{ 'table-loading': loading }">
       <thead>
         <tr>
-          <th>Provider</th><th>Model</th><th>User</th><th>Started</th><th>Duration</th>
-          <th class="num">Input</th><th class="num">Output</th><th>Actions</th>
+          <th class="sortable" :class="{ active: sortBy === 'provider' }" @click="toggleSort('provider')">
+            Provider <span class="sort-icon">{{ sortIcon('provider') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'model' }" @click="toggleSort('model')">
+            Model <span class="sort-icon">{{ sortIcon('model') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'startedAt' }" @click="toggleSort('startedAt')">
+            Started <span class="sort-icon">{{ sortIcon('startedAt') }}</span>
+          </th>
+          <th class="sortable" :class="{ active: sortBy === 'duration' }" @click="toggleSort('duration')">
+            Duration <span class="sort-icon">{{ sortIcon('duration') }}</span>
+          </th>
+          <th class="num sortable" :class="{ active: sortBy === 'inputTokens' }" @click="toggleSort('inputTokens')">
+            Input <span class="sort-icon">{{ sortIcon('inputTokens') }}</span>
+          </th>
+          <th class="num sortable" :class="{ active: sortBy === 'outputTokens' }" @click="toggleSort('outputTokens')">
+            Output <span class="sort-icon">{{ sortIcon('outputTokens') }}</span>
+          </th>
+          <th>User</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -82,11 +120,11 @@ onMounted(async () => {
             </span>
           </td>
           <td class="model-cell">{{ row.model }}</td>
-          <td><span class="user-pill">{{ row.username }}</span></td>
           <td class="muted">{{ formatDate(row.startedAt) }}</td>
           <td class="muted">{{ interceptionDuration(row) }}</td>
           <td class="num">{{ fmtNum(row.inputTokens) }}</td>
           <td class="num">{{ fmtNum(row.outputTokens) }}</td>
+          <td><span class="user-pill">{{ row.username }}</span></td>
           <td>
             <button class="btn-view" @click="openDetail(row.id)">View</button>
           </td>
@@ -110,7 +148,7 @@ onMounted(async () => {
 .role-select { padding: 0.3rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; background: white; cursor: pointer; }
 .state-msg { color: #64748b; font-size: 0.9rem; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; white-space: nowrap; }
 .data-table th.num { text-align: right; }
 .data-table thead tr:first-child th:first-child { border-radius: 10px 0 0 0; }
 .data-table thead tr:first-child th:last-child  { border-radius: 0 10px 0 0; }
@@ -119,6 +157,11 @@ onMounted(async () => {
 .data-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid #f1f5f9; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table.table-loading { opacity: 0.6; pointer-events: none; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: #334155; background: #f1f5f9; }
+.sortable.active { color: #3b82f6; }
+.sort-icon { font-size: 0.7rem; margin-left: 0.25rem; opacity: 0.5; }
+.sortable.active .sort-icon { opacity: 1; }
 .muted { color: #64748b; }
 .num { text-align: right; font-variant-numeric: tabular-nums; color: #334155; font-weight: 500; }
 .model-cell { font-family: monospace; font-size: 0.82rem; color: #334155; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

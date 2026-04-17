@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -39,8 +40,18 @@ const historyBaseSQL = `
 	LEFT JOIN aibridge_token_usages     atu ON atu.interception_id = ai.id
 `
 
-// historyQuery runs a paginated interception query with a shared WHERE clause.
-func historyQuery(whereSQL string, whereArgs []any, page, pageSize int) ([]interceptionRow, int64, error) {
+// sortableColumns maps frontend sort keys to safe SQL expressions.
+var sortableColumns = map[string]string{
+	"provider":     "ai.provider",
+	"model":        "ai.model",
+	"startedAt":    "ai.started_at",
+	"duration":     "EXTRACT(EPOCH FROM (COALESCE(ai.ended_at, NOW()) - ai.started_at))",
+	"inputTokens":  "input_tokens",
+	"outputTokens": "output_tokens",
+}
+
+// historyQuery runs a paginated, sortable interception query with a shared WHERE clause.
+func historyQuery(whereSQL string, whereArgs []any, page, pageSize int, sortBy, sortDir string) ([]interceptionRow, int64, error) {
 	countSQL := `SELECT COUNT(DISTINCT ai.id)
 		FROM aibridge_interceptions ai
 		LEFT JOIN registered_users      ru  ON ru.id = ai.initiator_id
@@ -52,9 +63,18 @@ func historyQuery(whereSQL string, whereArgs []any, page, pageSize int) ([]inter
 		return nil, 0, err
 	}
 
+	col, ok := sortableColumns[sortBy]
+	if !ok {
+		col = "ai.started_at"
+	}
+	dir := "DESC"
+	if strings.EqualFold(sortDir, "asc") {
+		dir = "ASC"
+	}
+
 	dataSQL := historyBaseSQL + whereSQL +
 		` GROUP BY ai.id, ai.initiator_id, ai.provider, ai.model, ai.started_at, ai.ended_at, ru.username
-		 ORDER BY ai.started_at DESC LIMIT ? OFFSET ?`
+		 ORDER BY ` + col + ` ` + dir + ` LIMIT ? OFFSET ?`
 	dataArgs := append(append([]any{}, whereArgs...), pageSize, (page-1)*pageSize)
 
 	rows := make([]interceptionRow, 0)
@@ -70,6 +90,8 @@ func GetHistory(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	search := c.Query("search")
+	sortBy := c.DefaultQuery("sortBy", "startedAt")
+	sortDir := c.DefaultQuery("sortDir", "desc")
 
 	if page < 1 {
 		page = 1
@@ -87,7 +109,7 @@ func GetHistory(c *gin.Context) {
 		args = append(args, like, like)
 	}
 
-	rows, total, err := historyQuery(where, args, page, pageSize)
+	rows, total, err := historyQuery(where, args, page, pageSize, sortBy, sortDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

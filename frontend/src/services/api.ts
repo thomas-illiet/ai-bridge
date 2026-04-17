@@ -99,13 +99,13 @@ export interface HistoryResponse {
   pageSize: number
 }
 
-export const getHistory = (page: number, pageSize: number, search: string) =>
-  api.get<HistoryResponse>('/history', { params: { page, pageSize, search } })
+export const getHistory = (page: number, pageSize: number, search: string, sortBy = 'startedAt', sortDir = 'desc') =>
+  api.get<HistoryResponse>('/history', { params: { page, pageSize, search, sortBy, sortDir } })
 export const getHistoryDetail = (id: string) =>
   api.get<InterceptionDetail>(`/history/${id}`)
 
-export const adminGetHistory = (page: number, pageSize: number, search: string, userId: string) =>
-  api.get<HistoryResponse>('/admin/history', { params: { page, pageSize, search, userId } })
+export const adminGetHistory = (page: number, pageSize: number, search: string, userId: string, sortBy = 'startedAt', sortDir = 'desc') =>
+  api.get<HistoryResponse>('/admin/history', { params: { page, pageSize, search, userId, sortBy, sortDir } })
 export const adminGetHistoryDetail = (id: string) =>
   api.get<InterceptionDetail>(`/admin/history/${id}`)
 
