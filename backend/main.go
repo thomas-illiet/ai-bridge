@@ -53,28 +53,23 @@ func main() {
 		&models.AibridgeUserPrompt{},
 		&models.AibridgeToolUsage{},
 		&models.AibridgeModelThought{},
+		&models.IPWhitelistEntry{},
+		&models.RegisteredUser{},
 	); err != nil {
 		log.Fatalf("auto-migrate error: %v", err)
 	}
 
 	// Build aibridge providers from configured API keys.
 	var providers []aibridge.Provider
-	if cfg.AnthropicAPIKey != "" {
-		providers = append(providers, aibridge.NewAnthropicProvider(
-			aibridge.AnthropicConfig{Key: cfg.AnthropicAPIKey}, nil,
-		))
-	}
 	if cfg.OpenAIAPIKey != "" {
 		providers = append(providers, aibridge.NewOpenAIProvider(
 			aibridge.OpenAIConfig{Key: cfg.OpenAIAPIKey},
 		))
 	}
 	if cfg.OllamaBaseURL != "" {
-		providers = append(providers, aibridge.NewOpenAIProvider(aibridge.OpenAIConfig{
-			Name:    "ollama",
-			BaseURL: strings.TrimRight(cfg.OllamaBaseURL, "/") + "/v1/",
-			Key:     "ollama",
-		}))
+		providers = append(providers, aibpkg.NewOllamaProvider(
+			strings.TrimRight(cfg.OllamaBaseURL, "/")+"/v1/", "",
+		))
 	}
 
 	reg := prometheus.NewRegistry()
@@ -94,6 +89,24 @@ func main() {
 		api.POST("/tokens", handlers.CreateToken(cfg.TokenSecret))
 		api.GET("/tokens", handlers.ListTokens)
 		api.DELETE("/tokens/:id", handlers.RevokeToken)
+		api.GET("/history", handlers.GetHistory)
+		api.GET("/history/:id", handlers.GetHistoryDetail)
+		api.GET("/models", handlers.GetModels(cfg))
+
+		admin := api.Group("/admin")
+		admin.Use(middleware.RequireRole(middleware.RoleAdmin))
+		admin.GET("/whitelist", handlers.ListWhitelist)
+		admin.POST("/whitelist", handlers.AddWhitelist)
+		admin.DELETE("/whitelist/:id", handlers.DeleteWhitelist)
+		admin.PATCH("/whitelist/:id", handlers.ToggleWhitelist)
+		admin.GET("/users", handlers.ListUsers)
+		admin.PATCH("/users/:id", handlers.UpdateUserRole)
+		admin.DELETE("/users/:id", handlers.DeleteUser)
+		admin.GET("/users/:id/stats", handlers.GetUserStats)
+		admin.GET("/tokens", handlers.AdminListTokens)
+		admin.DELETE("/tokens/:id", handlers.AdminRevokeToken)
+		admin.GET("/history", handlers.AdminGetHistory)
+		admin.GET("/history/:id", handlers.AdminGetHistoryDetail)
 	}
 
 	if len(providers) > 0 {
@@ -101,16 +114,22 @@ func main() {
 		if err != nil {
 			log.Fatalf("aibridge error: %v", err)
 		}
-		defer bridge.Shutdown(ctx)
+		defer func(bridge *aibridge.RequestBridge, ctx context.Context) {
+			err := bridge.Shutdown(ctx)
+			if err != nil {
+				log.Fatalf("aibridge error: %v", err)
+			}
+		}(bridge, ctx)
 
 		aib := r.Group("")
 		aib.Use(middleware.JWTAuth(cfg))
+		aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin))
+		aib.Use(middleware.IPWhitelist())
 		aib.Use(middleware.AIBridgeActor())
-		aib.Any("/anthropic/*path", gin.WrapH(bridge))
 		aib.Any("/openai/*path", gin.WrapH(bridge))
 		aib.Any("/ollama/*path", gin.WrapH(bridge))
 	} else {
-		logger.Warn(ctx, "no AI providers configured — set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable the proxy")
+		logger.Warn(ctx, "no AI providers configured — set OPENAI_API_KEY or OLLAMA_BASE_URL to enable the proxy")
 	}
 
 	log.Printf("server listening on :%s", cfg.ServerPort)
