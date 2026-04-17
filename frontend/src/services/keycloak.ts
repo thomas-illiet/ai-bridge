@@ -7,6 +7,14 @@ const keycloak = new Keycloak({
 })
 
 export async function initKeycloak(): Promise<boolean> {
+  keycloak.onTokenExpired = () => {
+    keycloak.updateToken(30).catch(() => keycloak.login())
+  }
+
+  keycloak.onAuthRefreshError = () => {
+    keycloak.login()
+  }
+
   return keycloak.init({
     onLoad: 'check-sso',
     silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
@@ -27,10 +35,15 @@ export function getToken(): string | undefined {
 }
 
 export async function getValidToken(): Promise<string | undefined> {
-  if (keycloak.isTokenExpired(30)) {
-    await keycloak.updateToken(30)
+  try {
+    if (keycloak.isTokenExpired(30)) {
+      await keycloak.updateToken(30)
+    }
+    return keycloak.token
+  } catch {
+    keycloak.login()
+    return undefined
   }
-  return keycloak.token
 }
 
 export function isAuthenticated(): boolean {
