@@ -3,22 +3,39 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	ServerPort          string
-	KeycloakBaseURL     string
-	KeycloakIssuerURL   string
-	KeycloakRealm       string
-	KeycloakClientID    string
-	AllowedOrigins      string
-	DatabaseDSN         string
-	TokenSecret         string
-	AnthropicAPIKey     string
-	OpenAIAPIKey        string
-	OllamaBaseURL       string
+	ServerPort        string
+	KeycloakBaseURL   string
+	KeycloakIssuerURL string
+	KeycloakRealm     string
+	KeycloakClientID  string
+	AllowedOrigins    string
+	DatabaseDSN       string
+	TokenSecret       string
+	OpenAIAPIKey      string
+	OllamaBaseURL     string
+	OllamaNumCtx      int
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if val, err := strconv.Atoi(v); err == nil {
+			return val
+		}
+	}
+	return fallback
 }
 
 func Load() (*Config, error) {
@@ -36,9 +53,9 @@ func Load() (*Config, error) {
 		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
 		DatabaseDSN:       getEnv("DATABASE_DSN", ""),
 		TokenSecret:       getEnv("TOKEN_SECRET", ""),
-		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 		OllamaBaseURL:     getEnv("OLLAMA_BASE_URL", ""),
+		OllamaNumCtx:      getEnvInt("OLLAMA_NUM_CTX", 4096),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {
@@ -54,17 +71,10 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-func (c *Config) JWKSUrl() string {
+func (c *Config) JWTSUrl() string {
 	return fmt.Sprintf("%s/realms/%s/protocol/openid-connect/certs", c.KeycloakBaseURL, c.KeycloakRealm)
 }
 
 func (c *Config) IssuerURL() string {
 	return fmt.Sprintf("%s/realms/%s", c.KeycloakIssuerURL, c.KeycloakRealm)
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

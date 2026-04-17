@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
-	"github.com/google/uuid"
 	aibrecorder "github.com/coder/aibridge/recorder"
+	"github.com/google/uuid"
 	"github.com/thomas-illiet/ai-bridge/database"
 	"github.com/thomas-illiet/ai-bridge/models"
 )
 
-// GORMRecorder implements aibridge.Recorder using the PostgreSQL database via GORM.
+// GORMRecorder implements aibridge.Recorder using the PostgresSQL database via GORM.
 type GORMRecorder struct{}
 
 var _ aibrecorder.Recorder = (*GORMRecorder)(nil)
@@ -37,21 +38,29 @@ func marshalAny(v any) string {
 }
 
 func (r *GORMRecorder) RecordInterception(_ context.Context, req *aibrecorder.InterceptionRecord) error {
+	startedAt := req.StartedAt
+	if startedAt.IsZero() {
+		startedAt = time.Now().UTC()
+	}
 	row := models.AibridgeInterception{
 		ID:          req.ID,
 		InitiatorID: req.InitiatorID,
 		Provider:    req.Provider,
 		Model:       req.Model,
-		StartedAt:   req.StartedAt,
+		StartedAt:   startedAt,
 		Metadata:    marshalMeta(req.Metadata),
 	}
 	return database.DB.Create(&row).Error
 }
 
 func (r *GORMRecorder) RecordInterceptionEnded(_ context.Context, req *aibrecorder.InterceptionRecordEnded) error {
+	endedAt := req.EndedAt
+	if endedAt.IsZero() {
+		endedAt = time.Now().UTC()
+	}
 	return database.DB.Model(&models.AibridgeInterception{}).
 		Where("id = ?", req.ID).
-		Update("ended_at", req.EndedAt).Error
+		Update("ended_at", endedAt).Error
 }
 
 func (r *GORMRecorder) RecordTokenUsage(_ context.Context, req *aibrecorder.TokenUsageRecord) error {
