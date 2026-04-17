@@ -18,14 +18,16 @@ type PATClaims struct {
 	jwt.RegisteredClaims
 }
 
-func CreateToken(userID, name, secret string) (*models.ClientToken, string, error) {
+func CreateToken(userID, name, secret string, durationDays int) (*models.ClientToken, string, error) {
 	id := uuid.New()
+	expiresAt := time.Now().UTC().AddDate(0, 0, durationDays)
 
 	claims := PATClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:  userID,
-			ID:       id.String(),
-			IssuedAt: jwt.NewNumericDate(time.Now()),
+			Subject:   userID,
+			ID:        id.String(),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
 		},
 	}
 
@@ -39,6 +41,7 @@ func CreateToken(userID, name, secret string) (*models.ClientToken, string, erro
 		UserID:    userID,
 		Name:      name,
 		TokenHash: HashToken(raw),
+		ExpiresAt: &expiresAt,
 	}
 
 	if err := database.DB.Create(record).Error; err != nil {
@@ -80,6 +83,10 @@ func LookupAndVerify(jti, raw, secret string) (*models.ClientToken, error) {
 
 	if record.IsRevoked() {
 		return nil, fmt.Errorf("token revoked")
+	}
+
+	if record.IsExpired() {
+		return nil, fmt.Errorf("token expired")
 	}
 
 	now := time.Now()

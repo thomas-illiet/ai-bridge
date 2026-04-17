@@ -12,6 +12,7 @@ type ClientToken struct {
 	UserID     string         `gorm:"not null;index" json:"userId"`
 	Name       string         `gorm:"not null" json:"name"`
 	TokenHash  string         `gorm:"not null;uniqueIndex" json:"-"`
+	ExpiresAt  *time.Time     `json:"expiresAt"`
 	LastUsedAt *time.Time     `json:"lastUsedAt"`
 	RevokedAt  *time.Time     `json:"revokedAt"`
 	CreatedAt  time.Time      `json:"createdAt"`
@@ -28,4 +29,8 @@ func (t *ClientToken) BeforeCreate(_ *gorm.DB) error {
 
 func (t *ClientToken) IsRevoked() bool {
 	return t.RevokedAt != nil
+}
+
+func (t *ClientToken) IsExpired() bool {
+	return t.ExpiresAt != nil && time.Now().After(*t.ExpiresAt)
 }

@@ -17,24 +17,26 @@ import (
 
 const ctxUserKey = "user"
 
+// Role constants — re-exported from models for convenience.
+const (
+	RoleAdmin = models.RoleAdmin
+	RoleUser  = models.RoleUser
+	RoleNone  = models.RoleNone
+)
+
 type KeycloakClaims struct {
 	jwt.RegisteredClaims
-	PreferredUsername string         `json:"preferred_username"`
-	Email             string         `json:"email"`
-	GivenName         string         `json:"given_name"`
-	FamilyName        string         `json:"family_name"`
-	RealmAccess       realmAccess    `json:"realm_access"`
-}
-
-type realmAccess struct {
-	Roles []string `json:"roles"`
+	PreferredUsername string `json:"preferred_username"`
+	Email             string `json:"email"`
+	GivenName         string `json:"given_name"`
+	FamilyName        string `json:"family_name"`
 }
 
 func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	jwks, err := keyfunc.NewDefaultCtx(ctx, []string{cfg.JWKSUrl()})
+	jwks, err := keyfunc.NewDefaultCtx(ctx, []string{cfg.JWTSUrl()})
 	if err != nil {
 		panic("failed to fetch JWKS from Keycloak: " + err.Error())
 	}
@@ -55,14 +57,23 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 			jwt.WithExpirationRequired(),
 		)
 		if err == nil && token.Valid {
+			registered, err := services.GetOrCreateUser(
+				keycloakClaims.Subject,
+				keycloakClaims.PreferredUsername,
+				keycloakClaims.Email,
+			)
+			if err != nil || registered == nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user registration failed"})
+				return
+			}
 			c.Set(ctxUserKey, &models.User{
-				ID:                keycloakClaims.Subject,
-				Username:          keycloakClaims.PreferredUsername,
-				Email:             keycloakClaims.Email,
+				ID:                registered.ID,
+				Username:          registered.Username,
+				Email:             registered.Email,
 				FirstName:         keycloakClaims.GivenName,
 				LastName:          keycloakClaims.FamilyName,
-				Roles:             keycloakClaims.RealmAccess.Roles,
-				PreferredUsername: keycloakClaims.PreferredUsername,
+				Roles:             []string{registered.Role},
+				PreferredUsername: registered.Username,
 			})
 			c.Next()
 			return
@@ -78,7 +89,17 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 				return
 			}
 			if record != nil {
-				c.Set(ctxUserKey, &models.User{ID: record.UserID, PreferredUsername: record.UserID})
+				// Look up DB role — PAT users are not automatically granted any role.
+				registered, err := services.GetUserByID(record.UserID)
+				role := RoleNone
+				if err == nil && registered != nil {
+					role = registered.Role
+				}
+				c.Set(ctxUserKey, &models.User{
+					ID:                record.UserID,
+					PreferredUsername: record.UserID,
+					Roles:             []string{role},
+				})
 				c.Next()
 				return
 			}
@@ -105,6 +126,26 @@ func RequireRole(role string) gin.HandlerFunc {
 			if r == role {
 				c.Next()
 				return
+			}
+		}
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+	}
+}
+
+// RequireAnyRole allows access if the user has at least one of the given roles.
+func RequireAnyRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user := GetUser(c)
+		if user == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+			return
+		}
+		for _, required := range roles {
+			for _, r := range user.Roles {
+				if r == required {
+					c.Next()
+					return
+				}
 			}
 		}
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
