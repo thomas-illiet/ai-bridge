@@ -29,9 +29,21 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/status',
-      name: 'status',
-      component: () => import('@/views/StatusView.vue'),
+      path: '/history',
+      name: 'history',
+      component: () => import('@/views/HistoryView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/help',
+      name: 'help',
+      component: () => import('@/views/HelpView.vue'),
+    },
+    {
+      path: '/admin',
+      name: 'admin',
+      component: () => import('@/views/AdminView.vue'),
+      meta: { requiresAuth: true, requiresRole: 'admin' },
     },
   ],
 })
@@ -40,6 +52,12 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.meta.requiresAuth && !auth.authenticated) {
     return { name: 'home' }
+  }
+  if (to.meta.requiresRole && !auth.hasRole(to.meta.requiresRole as string)) {
+    return { name: 'dashboard' }
+  }
+  if (to.name === 'home' && auth.authenticated) {
+    return { name: 'dashboard' }
   }
 })
 
