@@ -24,8 +24,8 @@ const auth = useAuthStore()
     <section v-if="auth.authenticated" class="welcome-card">
       <h2>Welcome back, {{ auth.fullName || auth.username }}</h2>
       <p>{{ auth.email }}</p>
-      <p v-if="auth.roles.length">
-        Roles: <span class="role-badge" v-for="role in auth.roles" :key="role">{{ role }}</span>
+      <p v-if="auth.dbRole !== 'none'">
+        Role: <span class="role-badge">{{ auth.dbRole }}</span>
       </p>
     </section>
   </div>

@@ -38,11 +38,10 @@ onMounted(() => {
 onUnmounted(() => clearInterval(interval))
 
 const SERVICE_LABELS: Record<string, string> = {
-  database:  'PostgreSQL',
-  keycloak:  'Keycloak',
-  anthropic: 'Anthropic',
-  openai:    'OpenAI',
-  ollama:    'Ollama',
+  database: 'PostgreSQL',
+  keycloak: 'Keycloak',
+  openai:   'OpenAI',
+  ollama:   'Ollama',
 }
 
 function label(s: ServiceStatus) {

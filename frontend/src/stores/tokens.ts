@@ -20,8 +20,8 @@ export const useTokenStore = defineStore('tokens', () => {
     }
   }
 
-  async function generateToken(name: string): Promise<CreateTokenResponse> {
-    const res = await createToken(name)
+  async function generateToken(name: string, durationDays: number): Promise<CreateTokenResponse> {
+    const res = await createToken(name, durationDays)
     return res.data
   }
 

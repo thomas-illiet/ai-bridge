@@ -15,6 +15,7 @@ async function bootstrap() {
     await initKeycloak()
     const auth = useAuthStore()
     auth.sync()
+    await auth.fetchRole()
   } catch (e) {
     console.error('Keycloak init failed, continuing unauthenticated', e)
   }
