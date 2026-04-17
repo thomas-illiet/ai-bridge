@@ -22,7 +22,24 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 <template>
   <nav class="navbar">
     <div class="navbar-brand">
-      <RouterLink to="/">AI Bridge</RouterLink>
+      <RouterLink to="/">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="brand-logo" aria-hidden="true">
+          <defs>
+            <linearGradient id="nav-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#3b82f6"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="7" fill="url(#nav-bg)"/>
+          <path d="M5 21 Q16 7 27 21" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="9" y1="21" x2="9" y2="27" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="23" y1="21" x2="23" y2="27" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="5" y1="21" x2="27" y2="21" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+          <circle cx="5" cy="21" r="2.2" fill="white"/>
+          <circle cx="27" cy="21" r="2.2" fill="white"/>
+        </svg>
+        <span>AI Bridge</span>
+      </RouterLink>
     </div>
 
     <div class="navbar-links">
@@ -73,10 +90,19 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 }
 
 .navbar-brand a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   font-size: 1.25rem;
   font-weight: 700;
   color: #f1f5f9;
   text-decoration: none;
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 .navbar-links {
