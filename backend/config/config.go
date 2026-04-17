@@ -20,6 +20,7 @@ type Config struct {
 	OpenAIAPIKey      string
 	OllamaBaseURL     string
 	OllamaNumCtx      int
+	TrustedProxies    string
 }
 
 func getEnv(key, fallback string) string {
@@ -56,6 +57,7 @@ func Load() (*Config, error) {
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 		OllamaBaseURL:     getEnv("OLLAMA_BASE_URL", ""),
 		OllamaNumCtx:      getEnvInt("OLLAMA_NUM_CTX", 4096),
+		TrustedProxies:    getEnv("TRUSTED_PROXIES", "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {
