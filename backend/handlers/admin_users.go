@@ -166,11 +166,12 @@ func DeleteUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// UpdateUserRole sets the role of a user (admin, user, or none).
+// UpdateUserRole sets the role and optional expiry date of a user.
 func UpdateUserRole(c *gin.Context) {
 	id := c.Param("id")
 	var body struct {
-		Role string `json:"role" binding:"required"`
+		Role      string `json:"role" binding:"required"`
+		ExpiresAt string `json:"expiresAt"` // YYYY-MM-DD or empty to clear
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -185,7 +186,20 @@ func UpdateUserRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot change your own role"})
 		return
 	}
-	result := database.DB.Model(&models.RegisteredUser{}).Where("id = ?", id).Update("role", body.Role)
+
+	var expiresAt *time.Time
+	if body.ExpiresAt != "" {
+		t, err := time.Parse("2006-01-02", body.ExpiresAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "expiresAt must be YYYY-MM-DD"})
+			return
+		}
+		eod := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, time.UTC)
+		expiresAt = &eod
+	}
+
+	updates := map[string]any{"role": body.Role, "role_expires_at": expiresAt}
+	result := database.DB.Model(&models.RegisteredUser{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return

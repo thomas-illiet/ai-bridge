@@ -9,6 +9,7 @@ import DeleteUserModal from './DeleteUserModal.vue'
 
 export interface RegisteredUser {
   id: string; username: string; email: string; role: 'admin' | 'user' | 'none'
+  roleExpiresAt: string | null
   createdAt: string; totalRequests: number; totalInput: number; totalOutput: number
 }
 
@@ -17,7 +18,7 @@ const auth = useAuthStore()
 const users      = ref<RegisteredUser[]>([])
 const loading    = ref(true)
 const error      = ref<string | null>(null)
-const updatingId = ref<string | null>(null)
+const saving     = ref(false)
 
 async function loadUsers() {
   try {
@@ -27,14 +28,41 @@ async function loadUsers() {
   finally { loading.value = false }
 }
 
-async function changeRole(user: RegisteredUser, role: string) {
-  updatingId.value = user.id
+// ── edit role modal ───────────────────────────────────────────────────────
+const editUser    = ref<RegisteredUser | null>(null)
+const editRole    = ref<string>('user')
+const editExpiry  = ref<string>('')
+
+function openEditModal(u: RegisteredUser) {
+  editUser.value   = u
+  editRole.value   = u.role
+  editExpiry.value = u.roleExpiresAt ? u.roleExpiresAt.slice(0, 10) : ''
+  closeMenus()
+}
+
+async function saveEdit() {
+  if (!editUser.value) return
+  saving.value = true
   try {
-    await updateUserRole(user.id, role)
-    user.role = role as RegisteredUser['role']
+    await updateUserRole(editUser.value.id, editRole.value, editExpiry.value || undefined)
+    editUser.value.role = editRole.value as RegisteredUser['role']
+    editUser.value.roleExpiresAt = editExpiry.value
+      ? new Date(editExpiry.value + 'T23:59:59Z').toISOString()
+      : null
+    editUser.value = null
   } catch (e: any) {
-    error.value = e?.response?.data?.error ?? 'Failed to update role'
-  } finally { updatingId.value = null }
+    error.value = e?.response?.data?.error ?? 'Failed to update'
+  } finally { saving.value = false }
+}
+
+// ── helpers ────────────────────────────────────────────────────────────────
+function expiryLabel(iso: string | null): string {
+  if (!iso) return 'Never'
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function isExpired(iso: string | null): boolean {
+  return !!iso && new Date(iso) < new Date()
 }
 
 // ── pagination ────────────────────────────────────────────────────────────
@@ -78,11 +106,11 @@ function roleBadgeClass(role: string) {
           <th>Username</th>
           <th>Email</th>
           <th>Role</th>
+          <th>Expires</th>
           <th class="num">Requests</th>
           <th class="num">Input tokens</th>
           <th class="num">Output tokens</th>
           <th>Registered</th>
-          <th>Change role</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -91,22 +119,15 @@ function roleBadgeClass(role: string) {
           <td class="bold">{{ u.username }}</td>
           <td class="muted">{{ u.email || '—' }}</td>
           <td><span class="badge" :class="roleBadgeClass(u.role)">{{ u.role }}</span></td>
+          <td>
+            <span class="expiry-label" :class="{ expired: isExpired(u.roleExpiresAt) }">
+              {{ expiryLabel(u.roleExpiresAt) }}
+            </span>
+          </td>
           <td class="num">{{ fmtNum(u.totalRequests) }}</td>
           <td class="num">{{ fmtNum(u.totalInput) }}</td>
           <td class="num">{{ fmtNum(u.totalOutput) }}</td>
           <td class="muted">{{ formatDate(u.createdAt) }}</td>
-          <td>
-            <select
-              :value="u.role"
-              :disabled="u.id === auth.tokenParsed?.sub || updatingId === u.id"
-              class="role-select"
-              @change="changeRole(u, ($event.target as HTMLSelectElement).value)"
-            >
-              <option value="admin">admin</option>
-              <option value="user">user</option>
-              <option value="none">none</option>
-            </select>
-          </td>
           <td class="actions">
             <div class="action-menu">
               <button class="btn-action-trigger" @click.stop="toggleMenu(u.id)">
@@ -114,6 +135,12 @@ function roleBadgeClass(role: string) {
               </button>
               <div v-if="openMenuId === u.id" class="action-dropdown">
                 <button class="action-item" @click="statsUser = u; closeMenus()">View stats</button>
+                <button
+                  class="action-item"
+                  :disabled="u.id === auth.tokenParsed?.sub"
+                  :title="u.id === auth.tokenParsed?.sub ? 'Cannot edit your own role' : ''"
+                  @click="u.id !== auth.tokenParsed?.sub && openEditModal(u)"
+                >Edit role &amp; expiry</button>
                 <div class="action-divider" />
                 <button
                   class="action-item danger"
@@ -137,6 +164,37 @@ function roleBadgeClass(role: string) {
 
     <UserStatsModal  :user="statsUser"  @close="statsUser = null" />
     <DeleteUserModal :user="deleteUser" @deleted="onDeleted" @close="deleteUser = null" />
+
+    <!-- Edit role & expiry modal -->
+    <Teleport to="body">
+      <div v-if="editUser" class="modal-backdrop" @click.self="editUser = null">
+        <div class="modal">
+          <h3>Edit role &amp; expiry</h3>
+          <p class="modal-sub">User: <strong>{{ editUser.username }}</strong></p>
+
+          <div class="form-group">
+            <label>Role</label>
+            <select v-model="editRole" class="role-select-full">
+              <option value="admin">admin</option>
+              <option value="user">user</option>
+              <option value="none">none</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Role expires on <span class="optional">(leave empty = never)</span></label>
+            <input type="date" v-model="editExpiry" class="date-input" />
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-cancel" @click="editUser = null">Cancel</button>
+            <button class="btn-primary" :disabled="saving" @click="saveEdit">
+              {{ saving ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -145,7 +203,7 @@ function roleBadgeClass(role: string) {
 .state-msg { color: #64748b; font-size: 0.9rem; }
 .state-msg.error { color: #ef4444; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; white-space: nowrap; }
 .data-table th.num { text-align: right; }
 .data-table thead tr:first-child th:first-child { border-radius: 10px 0 0 0; }
 .data-table thead tr:first-child th:last-child  { border-radius: 0 10px 0 0; }
@@ -161,17 +219,38 @@ function roleBadgeClass(role: string) {
 .badge-admin { background: #ede9fe; color: #6d28d9; }
 .badge-user  { background: #dcfce7; color: #166534; }
 .badge-none  { background: #f1f5f9; color: #64748b; }
-.role-select { padding: 0.3rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; background: white; cursor: pointer; }
-.role-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.expiry-label { font-size: 0.83rem; color: #475569; }
+.expiry-label.expired { color: #dc2626; font-weight: 600; }
+
 .action-menu { position: relative; display: inline-block; }
 .btn-action-trigger { display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.65rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #374151; font-size: 0.82rem; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .btn-action-trigger:hover { background: #f1f5f9; border-color: #cbd5e1; }
 .chevron-down { font-size: 0.7rem; color: #94a3b8; }
-.action-dropdown { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 148px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); padding: 0.25rem 0; }
+.action-dropdown { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 160px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); padding: 0.25rem 0; }
 .action-item { display: block; width: 100%; padding: 0.5rem 0.9rem; background: none; border: none; text-align: left; font-size: 0.85rem; font-weight: 500; color: #374151; cursor: pointer; }
-.action-item:hover { background: #f8fafc; }
+.action-item:hover:not(:disabled) { background: #f8fafc; }
 .action-item.danger { color: #dc2626; }
 .action-item.danger:hover:not(:disabled) { background: #fef2f2; }
 .action-item:disabled { opacity: 0.4; cursor: not-allowed; }
 .action-divider { height: 1px; background: #f1f5f9; margin: 0.2rem 0; }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.modal { background: white; border-radius: 12px; padding: 1.75rem; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 1rem; }
+.modal h3 { font-size: 1.1rem; font-weight: 700; margin: 0; }
+.modal-sub { font-size: 0.9rem; color: #475569; margin: 0; }
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: #374151; }
+.optional { font-weight: 400; color: #94a3b8; }
+.role-select-full { width: 100%; padding: 0.45rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; background: white; outline: none; }
+.role-select-full:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+.date-input { padding: 0.45rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; outline: none; }
+.date-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+.btn-cancel { padding: 0.4rem 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #374151; font-size: 0.88rem; cursor: pointer; }
+.btn-cancel:hover { background: #f8fafc; }
+.btn-primary { padding: 0.4rem 1rem; border: none; border-radius: 6px; background: #3b82f6; color: white; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+.btn-primary:hover:not(:disabled) { background: #2563eb; }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
