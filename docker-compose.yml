@@ -43,6 +43,13 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
+  maildev:
+    image: maildev/maildev:latest
+    ports:
+      - "1080:1080"  # web UI
+      - "1025:1025"  # SMTP
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -60,6 +67,10 @@ services:
       TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OLLAMA_BASE_URL: "http://ollama:11434"
+      SMTP_HOST: maildev
+      SMTP_PORT: "1025"
+      SMTP_FROM: "aibridge@localhost"
+      SMTP_TO: "${SMTP_TO:-admin@localhost}"
     depends_on:
       keycloak:
         condition: service_healthy
