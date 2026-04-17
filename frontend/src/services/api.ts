@@ -72,7 +72,8 @@ export const createToken = (name: string, durationDays: number) =>
 export const revokeToken = (id: string) => api.delete(`/tokens/${id}`)
 
 export const listUsers = () => api.get('/admin/users')
-export const updateUserRole = (id: string, role: string) => api.patch(`/admin/users/${id}`, { role })
+export const updateUserRole = (id: string, role: string, expiresAt?: string) =>
+  api.patch(`/admin/users/${id}`, { role, expiresAt: expiresAt ?? '' })
 export const deleteUser = (id: string) => api.delete(`/admin/users/${id}`)
 export const getUserStats = (id: string) => api.get(`/admin/users/${id}/stats`)
 
@@ -120,5 +121,29 @@ export const listWhitelist = () => api.get('/admin/whitelist')
 export const addWhitelist = (cidr: string, description: string) => api.post('/admin/whitelist', { cidr, description })
 export const deleteWhitelist = (id: string) => api.delete(`/admin/whitelist/${id}`)
 export const toggleWhitelist = (id: string, enabled: boolean) => api.patch(`/admin/whitelist/${id}`, { enabled })
+
+export interface AccessRequest {
+  id: string
+  userId: string
+  status: 'pending' | 'approved' | 'rejected'
+  reason: string
+  reviewNote: string
+  reviewedBy: string
+  reviewedAt: string | null
+  createdAt: string
+  user?: { id: string; username: string; email: string; role: string }
+}
+
+export const createAccessRequest = (reason: string) =>
+  api.post<AccessRequest>('/access-requests', { reason })
+export const getMyAccessRequest = () =>
+  api.get<AccessRequest | null>('/access-requests/me')
+
+export const adminListAccessRequests = (status?: string) =>
+  api.get<{ requests: AccessRequest[]; pendingCount: number }>('/admin/access-requests', { params: status ? { status } : {} })
+export const adminApproveRequest = (id: string, role: string, expiresAt?: string) =>
+  api.post<AccessRequest>(`/admin/access-requests/${id}/approve`, { role, expiresAt })
+export const adminRejectRequest = (id: string, note: string) =>
+  api.post<AccessRequest>(`/admin/access-requests/${id}/reject`, { note })
 
 export default api

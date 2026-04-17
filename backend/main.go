@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"cdr.dev/slog/v3"
 	"cdr.dev/slog/v3/sloggers/sloghuman"
@@ -55,6 +56,7 @@ func main() {
 		&models.AibridgeModelThought{},
 		&models.IPWhitelistEntry{},
 		&models.RegisteredUser{},
+		&models.AccessRequest{},
 	); err != nil {
 		log.Fatalf("auto-migrate error: %v", err)
 	}
@@ -87,6 +89,8 @@ func main() {
 		api.GET("/me", handlers.GetMe)
 		api.GET("/dashboard", handlers.GetDashboard)
 		api.GET("/models", handlers.GetModels(cfg))
+		api.POST("/access-requests", handlers.CreateAccessRequest(cfg))
+		api.GET("/access-requests/me", handlers.GetMyAccessRequest)
 
 		user := api.Group("")
 		user.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin))
@@ -110,6 +114,9 @@ func main() {
 		admin.DELETE("/tokens/:id", handlers.AdminRevokeToken)
 		admin.GET("/history", handlers.AdminGetHistory)
 		admin.GET("/history/:id", handlers.AdminGetHistoryDetail)
+		admin.GET("/access-requests", handlers.AdminListAccessRequests)
+		admin.POST("/access-requests/:id/approve", handlers.AdminApproveRequest(cfg))
+		admin.POST("/access-requests/:id/reject", handlers.AdminRejectRequest(cfg))
 	}
 
 	if len(providers) > 0 {
@@ -134,6 +141,19 @@ func main() {
 	} else {
 		logger.Warn(ctx, "no AI providers configured — set OPENAI_API_KEY or OLLAMA_BASE_URL to enable the proxy")
 	}
+
+	// Background job: revoke roles that have passed their expiry date.
+	go func() {
+		interval := time.Duration(cfg.RoleExpiryIntervalSec) * time.Second
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			database.DB.Model(&models.RegisteredUser{}).
+				Where("role != ? AND role_expires_at IS NOT NULL AND role_expires_at <= ?",
+					models.RoleNone, time.Now()).
+				Update("role", models.RoleNone)
+		}
+	}()
 
 	log.Printf("server listening on :%s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {

@@ -21,6 +21,13 @@ type Config struct {
 	OllamaBaseURL     string
 	OllamaNumCtx      int
 	TrustedProxies    string
+	SMTPHost              string
+	SMTPPort              int
+	SMTPUser              string
+	SMTPPassword          string
+	SMTPFrom              string
+	SMTPTo                string // comma-separated admin emails
+	RoleExpiryIntervalSec int    // how often to check for expired roles (seconds)
 }
 
 func getEnv(key, fallback string) string {
@@ -58,6 +65,13 @@ func Load() (*Config, error) {
 		OllamaBaseURL:     getEnv("OLLAMA_BASE_URL", ""),
 		OllamaNumCtx:      getEnvInt("OLLAMA_NUM_CTX", 4096),
 		TrustedProxies:    getEnv("TRUSTED_PROXIES", "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"),
+		SMTPHost:          getEnv("SMTP_HOST", ""),
+		SMTPPort:          getEnvInt("SMTP_PORT", 587),
+		SMTPUser:          getEnv("SMTP_USER", ""),
+		SMTPPassword:      getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:          getEnv("SMTP_FROM", ""),
+		SMTPTo:                getEnv("SMTP_TO", ""),
+		RoleExpiryIntervalSec: getEnvInt("ROLE_EXPIRY_INTERVAL_SEC", 60),
 	}
 
 	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {

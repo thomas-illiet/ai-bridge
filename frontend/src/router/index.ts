@@ -14,7 +14,7 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin'] },
     },
     {
       path: '/profile',
@@ -38,6 +38,7 @@ const router = createRouter({
       path: '/help',
       name: 'help',
       component: () => import('@/views/HelpView.vue'),
+      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin'] },
     },
     {
       path: '/admin',
@@ -54,9 +55,15 @@ router.beforeEach((to) => {
     return { name: 'home' }
   }
   if (to.meta.requiresRole && !auth.hasRole(to.meta.requiresRole as string)) {
-    return { name: 'dashboard' }
+    return { name: 'home' }
   }
-  if (to.name === 'home' && auth.authenticated) {
+  if (to.meta.requiresAnyRole) {
+    const roles = to.meta.requiresAnyRole as string[]
+    if (!roles.some(r => auth.hasRole(r))) {
+      return { name: 'home' }
+    }
+  }
+  if (to.name === 'home' && auth.authenticated && auth.dbRole !== 'none') {
     return { name: 'dashboard' }
   }
 })
