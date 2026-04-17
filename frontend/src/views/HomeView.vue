@@ -1,27 +1,66 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getMyAccessRequest, createAccessRequest } from '@/services/api'
 import type { AccessRequest } from '@/services/api'
 
 const auth    = useAuthStore()
+const router  = useRouter()
 const request = ref<AccessRequest | null>(null)
 const reason  = ref('')
 const loading = ref(false)
 const submitting = ref(false)
 const error   = ref('')
 
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+async function fetchRequest() {
+  try {
+    const res = await getMyAccessRequest()
+    request.value = res.data
+
+    // If approved, refresh the role then redirect to dashboard
+    if (res.data?.status === 'approved') {
+      stopPolling()
+      await auth.fetchRole()
+      router.push('/dashboard')
+    }
+  } catch {
+    request.value = null
+  }
+}
+
+function startPolling() {
+  pollTimer = setInterval(fetchRequest, 30_000)
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
 onMounted(async () => {
   if (auth.authenticated && auth.dbRole === 'none') {
     loading.value = true
-    try {
-      const res = await getMyAccessRequest()
-      request.value = res.data
-    } catch {
-      request.value = null
-    } finally {
-      loading.value = false
+    await fetchRequest()
+    loading.value = false
+    if (request.value?.status === 'pending') {
+      startPolling()
     }
+  }
+})
+
+onUnmounted(stopPolling)
+
+// Start polling when request becomes pending (e.g. after first submit)
+watch(request, (val) => {
+  if (val?.status === 'pending' && !pollTimer) {
+    startPolling()
+  } else if (val?.status !== 'pending') {
+    stopPolling()
   }
 })
 
@@ -38,6 +77,18 @@ async function submit() {
   } finally {
     submitting.value = false
   }
+}
+
+function relativeDate(iso: string): string {
+  const d = new Date(iso)
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1)  return 'just now'
+  if (mins < 60) return `${mins} minute${mins > 1 ? 's' : ''} ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)  return `${hrs} hour${hrs > 1 ? 's' : ''} ago`
+  const days = Math.floor(hrs / 24)
+  return `${days} day${days > 1 ? 's' : ''} ago`
 }
 </script>
 
@@ -61,27 +112,49 @@ async function submit() {
     <section v-if="auth.authenticated && auth.dbRole === 'none'" class="request-section">
 
       <div v-if="loading" class="state-card">
-        <p class="muted">Loading…</p>
+        <div class="spinner" />
+        <p class="muted">Loading your request status…</p>
       </div>
 
       <!-- Pending -->
       <div v-else-if="request?.status === 'pending'" class="state-card pending">
-        <div class="state-icon">⏳</div>
-        <h2>Request Pending</h2>
-        <p>Your access request is under review. Our team will get back to you shortly.</p>
-        <p class="muted small">Submitted on {{ new Date(request.createdAt).toLocaleDateString() }}</p>
+        <div class="spinner spinner--amber" />
+
+        <div class="pending-text">
+          <h2>Your request is being reviewed</h2>
+          <p>
+            Our team has received your request and is reviewing it.
+            You'll be automatically redirected here as soon as a decision is made —
+            no need to refresh the page.
+          </p>
+          <p class="submitted-at">
+            Submitted {{ relativeDate(request.createdAt) }}
+            <span class="dot">·</span>
+            Checking for updates every 30 s
+          </p>
+        </div>
+
+        <div class="reason-preview">
+          <span class="reason-label">Your reason</span>
+          <p>{{ request.reason }}</p>
+        </div>
       </div>
 
       <!-- Rejected -->
       <div v-else-if="request?.status === 'rejected'" class="state-card rejected">
-        <div class="state-icon">✗</div>
-        <h2>Request Rejected</h2>
-        <p v-if="request.reviewNote" class="review-note">
-          <strong>Reason:</strong> {{ request.reviewNote }}
-        </p>
+        <div class="reject-icon">✕</div>
+        <div class="pending-text">
+          <h2>Request not approved</h2>
+          <p>Your request was reviewed but could not be approved at this time.</p>
+          <p class="submitted-at">Reviewed {{ relativeDate(request.reviewedAt ?? request.createdAt) }}</p>
+        </div>
+        <div v-if="request.reviewNote" class="review-note">
+          <span class="reason-label">Reviewer's note</span>
+          <p>{{ request.reviewNote }}</p>
+        </div>
         <p class="muted small">You may submit a new request below.</p>
         <form class="request-form" @submit.prevent="submit">
-          <label for="reason">Describe why you need access</label>
+          <label for="reason">Explain your need for access</label>
           <textarea
             id="reason"
             v-model="reason"
@@ -150,11 +223,9 @@ async function submit() {
 .btn-primary:hover:not(:disabled) { background: #2563eb; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-.request-section {
-  width: 100%;
-  max-width: 560px;
-}
+.request-section { width: 100%; max-width: 560px; }
 
+/* Card base */
 .state-card {
   background: white;
   border: 1px solid #e2e8f0;
@@ -163,36 +234,79 @@ async function submit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.25rem;
   text-align: center;
 }
-.state-card h2 { font-size: 1.3rem; font-weight: 700; margin: 0; }
-.state-card p { color: #475569; font-size: 0.95rem; margin: 0; }
+.state-card h2 { font-size: 1.25rem; font-weight: 700; margin: 0; color: #1e293b; }
+.state-card p  { color: #475569; font-size: 0.95rem; margin: 0; line-height: 1.6; }
 
-.state-card.pending { border-color: #fbbf24; background: #fffbeb; }
-.state-card.rejected { border-color: #fca5a5; background: #fff1f2; }
+.state-card.pending  { border-color: #fcd34d; background: #fffbeb; }
+.state-card.rejected { border-color: #fca5a5; background: #fff1f2; align-items: flex-start; text-align: left; }
 .state-card.form-card { text-align: left; align-items: flex-start; }
 
-.state-icon { font-size: 2.5rem; line-height: 1; }
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+.spinner--amber {
+  border-color: #fde68a;
+  border-top-color: #f59e0b;
+}
 
+/* Pending body */
+.pending-text { display: flex; flex-direction: column; gap: 0.5rem; }
+.submitted-at { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+.dot { margin: 0 0.4rem; }
+
+/* Reason / review note box */
+.reason-preview,
 .review-note {
-  background: #fee2e2;
-  border-left: 3px solid #f87171;
-  padding: 0.6rem 0.9rem;
-  border-radius: 0 6px 6px 0;
-  font-size: 0.9rem;
-  text-align: left;
   width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  text-align: left;
   box-sizing: border-box;
 }
-
-.request-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  width: 100%;
-  margin-top: 0.5rem;
+.state-card.pending .reason-preview { background: #fefce8; border-color: #fde68a; }
+.review-note { background: #fef2f2; border-color: #fecaca; }
+.reason-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin-bottom: 0.35rem;
 }
+.reason-preview p,
+.review-note p { font-size: 0.9rem; color: #374151; margin: 0; line-height: 1.5; }
+
+/* Reject icon */
+.reject-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Form */
+.request-form { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
 .request-form label { font-size: 0.9rem; font-weight: 600; color: #374151; }
 .request-form textarea {
   width: 100%;
@@ -206,7 +320,6 @@ async function submit() {
   box-sizing: border-box;
 }
 .request-form textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
-.request-form .btn { align-self: flex-start; }
 
 .form-error { color: #dc2626; font-size: 0.85rem; margin: 0; }
 .muted { color: #64748b; }
