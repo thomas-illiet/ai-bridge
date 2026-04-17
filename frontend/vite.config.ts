@@ -16,6 +16,14 @@ export default defineConfig({
         target: 'http://localhost:8585',
         changeOrigin: true,
       },
+      '/openai': {
+        target: 'http://localhost:8585',
+        changeOrigin: true,
+      },
+      '/ollama': {
+        target: 'http://localhost:8585',
+        changeOrigin: true,
+      },
     },
   },
 })

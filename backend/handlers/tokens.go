@@ -57,7 +57,8 @@ func CreateToken(secret string) gin.HandlerFunc {
 	}
 }
 
-// ListTokens returns all tokens for the authenticated user.
+// ListTokens returns tokens for the authenticated user.
+// Query param: include_revoked=true to include revoked tokens (default: false).
 func ListTokens(c *gin.Context) {
 	user := middleware.GetUser(c)
 	if user == nil {
@@ -65,7 +66,9 @@ func ListTokens(c *gin.Context) {
 		return
 	}
 
-	tokens, err := services.ListUserTokens(user.ID)
+	includeRevoked := c.Query("include_revoked") == "true"
+
+	tokens, err := services.ListUserTokens(user.ID, includeRevoked)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tokens"})
 		return

@@ -84,8 +84,26 @@ onMounted(load)
       </div>
     </div>
 
-    <div v-if="loading && requests.length === 0" class="state-msg">Loading…</div>
-    <div v-else-if="requests.length === 0" class="state-msg">No requests found.</div>
+    <div v-if="loading && requests.length === 0" class="empty-card">
+      <div class="empty-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </div>
+      <p class="empty-title">Loading requests…</p>
+    </div>
+    <div v-else-if="requests.length === 0" class="empty-card">
+      <div class="empty-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/>
+          <line x1="9" y1="17" x2="11" y2="17"/>
+        </svg>
+      </div>
+      <p class="empty-title">No requests found</p>
+      <p class="empty-sub">{{ statusFilter ? 'Try changing the status filter.' : 'When users request access, they will appear here.' }}</p>
+    </div>
 
     <table v-else class="data-table" :class="{ 'table-loading': loading }">
       <thead>
@@ -180,7 +198,31 @@ onMounted(load)
 .filters { display: flex; gap: 0.5rem; align-items: center; }
 .role-select { padding: 0.3rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.85rem; background: white; cursor: pointer; }
 .role-select.full { width: 100%; padding: 0.45rem 0.6rem; font-size: 0.9rem; }
-.state-msg { color: #64748b; font-size: 0.9rem; }
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  background: white;
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+}
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  color: #94a3b8;
+  margin-bottom: 0.25rem;
+}
+.empty-title { font-size: 1rem; font-weight: 600; color: #1e293b; margin: 0; }
+.empty-sub   { font-size: 0.85rem; color: #94a3b8; margin: 0; max-width: 320px; line-height: 1.5; }
 
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
 .data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; white-space: nowrap; }

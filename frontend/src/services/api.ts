@@ -66,7 +66,8 @@ export interface StatusResponse {
 
 export const getStatus = () => axios.get<StatusResponse>('/api/status')
 
-export const listTokens = () => api.get<{ tokens: ClientToken[] }>('/tokens')
+export const listTokens = (includeRevoked = false) =>
+  api.get<{ tokens: ClientToken[] }>('/tokens', { params: includeRevoked ? { include_revoked: 'true' } : {} })
 export const createToken = (name: string, durationDays: number) =>
   api.post<CreateTokenResponse>('/tokens', { name, durationDays })
 export const revokeToken = (id: string) => api.delete(`/tokens/${id}`)
@@ -110,8 +111,8 @@ export const adminGetHistory = (page: number, pageSize: number, search: string, 
 export const adminGetHistoryDetail = (id: string) =>
   api.get<InterceptionDetail>(`/admin/history/${id}`)
 
-export const adminListTokens = (page: number, pageSize: number, search: string) =>
-  api.get<AdminTokensResponse>('/admin/tokens', { params: { page, pageSize, search } })
+export const adminListTokens = (page: number, pageSize: number, search: string, includeRevoked = false) =>
+  api.get<AdminTokensResponse>('/admin/tokens', { params: { page, pageSize, search, ...(includeRevoked ? { include_revoked: 'true' } : {}) } })
 export const adminRevokeToken = (id: string) => api.delete(`/admin/tokens/${id}`)
 
 export const getModels = (provider: 'openai' | 'ollama') =>

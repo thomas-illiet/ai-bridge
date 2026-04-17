@@ -86,9 +86,33 @@ onMounted(loadWL)
 
     <div class="card">
       <h2 class="card-title">Whitelist entries</h2>
-      <div v-if="loading" class="state-msg">Loading…</div>
-      <div v-else-if="error" class="state-msg error">{{ error }}</div>
-      <div v-else-if="isEmpty" class="state-msg muted">No entries yet.</div>
+      <div v-if="loading" class="empty-card">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+        </div>
+        <p class="empty-title">Loading entries…</p>
+      </div>
+      <div v-else-if="error" class="empty-card empty-card--error">
+        <div class="empty-icon empty-icon--error">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <p class="empty-title">Failed to load</p>
+        <p class="empty-sub">{{ error }}</p>
+      </div>
+      <div v-else-if="isEmpty" class="empty-card">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <p class="empty-title">No IP rules yet</p>
+        <p class="empty-sub">All authenticated users can currently access the proxy. Add an IP or CIDR above to restrict access.</p>
+      </div>
       <table v-else class="data-table">
         <thead><tr><th>IP / CIDR</th><th>Description</th><th>Status</th><th>Added by</th><th>Date</th><th>Actions</th></tr></thead>
         <tbody>
@@ -120,9 +144,33 @@ onMounted(loadWL)
 
 <style scoped>
 .tab-content { display: flex; flex-direction: column; gap: 1.25rem; }
-.state-msg { color: #64748b; font-size: 0.9rem; }
-.state-msg.error { color: #ef4444; }
-.state-msg.muted { color: #94a3b8; }
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+  text-align: center;
+}
+.empty-card--error { background: #fff5f5; border-color: #fecaca; }
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #e2e8f0;
+  color: #94a3b8;
+  margin-bottom: 0.25rem;
+}
+.empty-icon--error { background: #fee2e2; color: #ef4444; }
+.empty-title { font-size: 1rem; font-weight: 600; color: #1e293b; margin: 0; }
+.empty-sub   { font-size: 0.85rem; color: #94a3b8; margin: 0; max-width: 320px; line-height: 1.5; }
 .mode-banner { display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1.25rem; border-radius: 10px; font-size: 0.9rem; }
 .banner-open       { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 .banner-restricted { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }

@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
+import ChatWidget from '@/views/chat/ChatWidget.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -16,6 +20,7 @@ import NavBar from '@/components/NavBar.vue'
       <span class="footer-sep">·</span>
       <span class="footer-copy">{{ new Date().getFullYear() }}</span>
     </footer>
+    <ChatWidget v-if="auth.authenticated && auth.dbRole !== 'none'" />
   </div>
 </template>
 

@@ -95,9 +95,13 @@ func LookupAndVerify(jti, raw, secret string) (*models.ClientToken, error) {
 	return &record, nil
 }
 
-func ListUserTokens(userID string) ([]models.ClientToken, error) {
+func ListUserTokens(userID string, includeRevoked bool) ([]models.ClientToken, error) {
 	var tokens []models.ClientToken
-	if err := database.DB.Where("user_id = ?", userID).Order("created_at desc").Find(&tokens).Error; err != nil {
+	q := database.DB.Where("user_id = ?", userID)
+	if !includeRevoked {
+		q = q.Where("revoked_at IS NULL")
+	}
+	if err := q.Order("created_at desc").Find(&tokens).Error; err != nil {
 		return nil, err
 	}
 	return tokens, nil

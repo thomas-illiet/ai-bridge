@@ -31,9 +31,15 @@ func AdminListTokens(c *gin.Context) {
 	}
 	offset := (page - 1) * pageSize
 
+	includeRevoked := c.Query("include_revoked") == "true"
+
 	q := database.DB.Model(&models.ClientToken{}).
 		Joins("LEFT JOIN registered_users ON registered_users.id = client_tokens.user_id").
 		Where("client_tokens.deleted_at IS NULL")
+
+	if !includeRevoked {
+		q = q.Where("client_tokens.revoked_at IS NULL")
+	}
 
 	if search != "" {
 		like := "%" + search + "%"
