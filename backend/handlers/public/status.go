@@ -1,4 +1,4 @@
-package handlers
+package public
 
 import (
 	"context"
@@ -22,7 +22,6 @@ type statusResponse struct {
 	Services []serviceStatus `json:"services"`
 }
 
-// GetStatus checks all configured services and returns their health.
 func GetStatus(cfg *config.Config) gin.HandlerFunc {
 	client := &http.Client{Timeout: 3 * time.Second}
 

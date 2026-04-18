@@ -1,4 +1,4 @@
-package handlers
+package admin
 
 import (
 	"fmt"
@@ -13,7 +13,6 @@ import (
 	"github.com/thomas-illiet/ai-bridge/models"
 )
 
-// ListWhitelist returns all IP whitelist entries ordered by creation date.
 func ListWhitelist(c *gin.Context) {
 	var entries []models.IPWhitelistEntry
 	if err := database.DB.Order("created_at desc").Find(&entries).Error; err != nil {
@@ -23,7 +22,6 @@ func ListWhitelist(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"entries": entries})
 }
 
-// AddWhitelist validates and inserts a new IP or CIDR entry into the whitelist.
 func AddWhitelist(c *gin.Context) {
 	var body struct {
 		CIDR        string `json:"cidr" binding:"required"`
@@ -60,7 +58,6 @@ func AddWhitelist(c *gin.Context) {
 	c.JSON(http.StatusCreated, entry)
 }
 
-// DeleteWhitelist removes a whitelist entry and invalidates the IP cache.
 func DeleteWhitelist(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -80,7 +77,6 @@ func DeleteWhitelist(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// ToggleWhitelist enables or disables a whitelist entry.
 func ToggleWhitelist(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

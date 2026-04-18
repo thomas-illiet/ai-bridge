@@ -1,4 +1,4 @@
-package handlers
+package common
 
 import (
 	"github.com/gin-gonic/gin"
@@ -6,7 +6,7 @@ import (
 	"github.com/thomas-illiet/ai-bridge/models"
 )
 
-func callerIsManager(c *gin.Context) bool {
+func CallerIsManager(c *gin.Context) bool {
 	user := middleware.GetUser(c)
 	if user == nil {
 		return false

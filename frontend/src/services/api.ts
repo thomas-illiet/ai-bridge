@@ -115,6 +115,33 @@ export const adminListTokens = (page: number, pageSize: number, search: string, 
   api.get<AdminTokensResponse>('/admin/tokens', { params: { page, pageSize, search, ...(includeRevoked ? { include_revoked: 'true' } : {}) } })
 export const adminRevokeToken = (id: string) => api.delete(`/admin/tokens/${id}`)
 
+export interface ServiceAccount {
+  id: string
+  username: string
+  description: string
+  role: 'service'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateServiceTokenResponse {
+  token: ClientToken
+  rawToken: string
+}
+
+export const listServiceAccounts = () =>
+  api.get<{ serviceAccounts: ServiceAccount[] }>('/admin/service-accounts')
+export const createServiceAccount = (username: string, description: string) =>
+  api.post<ServiceAccount>('/admin/service-accounts', { username, description })
+export const deleteServiceAccount = (id: string) =>
+  api.delete(`/admin/service-accounts/${id}`)
+export const listServiceTokens = (id: string, includeRevoked = false) =>
+  api.get<{ tokens: ClientToken[] }>(`/admin/service-accounts/${id}/tokens`, {
+    params: includeRevoked ? { include_revoked: 'true' } : {}
+  })
+export const createServiceToken = (id: string, name: string, durationDays: number) =>
+  api.post<CreateServiceTokenResponse>(`/admin/service-accounts/${id}/tokens`, { name, durationDays })
+
 export const getModels = (provider: 'openai' | 'ollama') =>
   api.get<{ models: string[] }>('/models', { params: { provider } })
 

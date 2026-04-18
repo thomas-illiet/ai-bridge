@@ -1,4 +1,4 @@
-package handlers
+package admin
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/thomas-illiet/ai-bridge/database"
+	"github.com/thomas-illiet/ai-bridge/handlers/common"
 	"github.com/thomas-illiet/ai-bridge/middleware"
 	"github.com/thomas-illiet/ai-bridge/models"
 	"gorm.io/gorm"
@@ -45,7 +46,6 @@ type userModelCount struct {
 	Count int64  `json:"count"`
 }
 
-// ListUsers returns all registered users with aggregated request and token stats.
 func ListUsers(c *gin.Context) {
 	var users []models.RegisteredUser
 	if err := database.DB.Order("created_at asc").Find(&users).Error; err != nil {
@@ -87,10 +87,9 @@ func ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"users": result})
 }
 
-// GetUserStats returns detailed usage stats for a specific user.
 func GetUserStats(c *gin.Context) {
 	id := c.Param("id")
-	if callerIsManager(c) {
+	if common.CallerIsManager(c) {
 		var target models.RegisteredUser
 		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil ||
 			target.Role == models.RoleAdmin || target.Role == models.RoleService {
@@ -142,7 +141,6 @@ func GetUserStats(c *gin.Context) {
 	})
 }
 
-// DeleteUser removes a user and all their tokens; admin cannot delete themselves.
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	caller := middleware.GetUser(c)
@@ -150,7 +148,7 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
 		return
 	}
-	if callerIsManager(c) {
+	if common.CallerIsManager(c) {
 		var target models.RegisteredUser
 		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
@@ -185,12 +183,11 @@ func DeleteUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// UpdateUserRole sets the role and optional expiry date of a user.
 func UpdateUserRole(c *gin.Context) {
 	id := c.Param("id")
 	var body struct {
 		Role      string `json:"role" binding:"required"`
-		ExpiresAt string `json:"expiresAt"` // YYYY-MM-DD or empty to clear
+		ExpiresAt string `json:"expiresAt"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -202,7 +199,7 @@ func UpdateUserRole(c *gin.Context) {
 		return
 	}
 	caller := middleware.GetUser(c)
-	if callerIsManager(c) {
+	if common.CallerIsManager(c) {
 		if body.Role != models.RoleUser && body.Role != models.RoleNone {
 			c.JSON(http.StatusForbidden, gin.H{"error": "managers can only assign user or none roles"})
 			return

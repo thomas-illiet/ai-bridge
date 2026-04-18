@@ -1,4 +1,4 @@
-package handlers
+package user
 
 import (
 	"encoding/json"
@@ -10,7 +10,6 @@ import (
 	"github.com/thomas-illiet/ai-bridge/config"
 )
 
-// GetModels returns available model IDs for the given provider.
 func GetModels(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Query("provider")

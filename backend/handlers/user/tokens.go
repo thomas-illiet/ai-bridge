@@ -1,4 +1,4 @@
-package handlers
+package user
 
 import (
 	"errors"
@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	maxDaysUser         = 5
-	maxDaysAdmin        = 30
-	maxDaysServiceToken = 365
+	maxDaysUser  = 5
+	maxDaysAdmin = 30
 )
 
 type createTokenRequest struct {
@@ -24,7 +23,6 @@ type createTokenRequest struct {
 	DurationDays int    `json:"durationDays" binding:"required,min=1"`
 }
 
-// CreateToken mints a new PAT for the authenticated user.
 func CreateToken(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req createTokenRequest
@@ -61,8 +59,6 @@ func CreateToken(secret string) gin.HandlerFunc {
 	}
 }
 
-// ListTokens returns tokens for the authenticated user.
-// Query param: include_revoked=true to include revoked tokens (default: false).
 func ListTokens(c *gin.Context) {
 	user := middleware.GetUser(c)
 	if user == nil {
@@ -81,7 +77,6 @@ func ListTokens(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tokens": tokens})
 }
 
-// RevokeToken marks the caller's token as revoked.
 func RevokeToken(c *gin.Context) {
 	user := middleware.GetUser(c)
 	if user == nil {

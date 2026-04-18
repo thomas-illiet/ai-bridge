@@ -1,4 +1,4 @@
-package handlers
+package admin
 
 import (
 	"net/http"
@@ -7,18 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/thomas-illiet/ai-bridge/database"
+	"github.com/thomas-illiet/ai-bridge/handlers/common"
 	"github.com/thomas-illiet/ai-bridge/models"
 	"gorm.io/gorm"
 )
 
-// adminTokenRow joins ClientToken with the owner's username for display.
 type adminTokenRow struct {
 	models.ClientToken
 	Username string `json:"username"`
 }
 
-// AdminListTokens returns all tokens across all users with pagination and search.
-func AdminListTokens(c *gin.Context) {
+func ListTokens(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	search := c.Query("search")
@@ -37,7 +36,7 @@ func AdminListTokens(c *gin.Context) {
 		Joins("LEFT JOIN registered_users ON registered_users.id = client_tokens.user_id").
 		Where("client_tokens.deleted_at IS NULL")
 
-	if callerIsManager(c) {
+	if common.CallerIsManager(c) {
 		q = q.Where("registered_users.role != ?", models.RoleService)
 	}
 
@@ -71,15 +70,14 @@ func AdminListTokens(c *gin.Context) {
 	})
 }
 
-// AdminRevokeToken revokes any token by ID regardless of owner.
-func AdminRevokeToken(c *gin.Context) {
+func RevokeToken(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token id"})
 		return
 	}
 
-	if callerIsManager(c) {
+	if common.CallerIsManager(c) {
 		var token models.ClientToken
 		if err := database.DB.Where("id = ?", id).First(&token).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})

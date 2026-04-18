@@ -1,4 +1,4 @@
-package handlers
+package user
 
 import (
 	"net/http"
@@ -41,7 +41,6 @@ type lastRequestInfo struct {
 	StartedAt time.Time `json:"startedAt"`
 }
 
-// GetMe returns the authenticated user's profile.
 func GetMe(c *gin.Context) {
 	user := middleware.GetUser(c)
 	if user == nil {
@@ -51,7 +50,6 @@ func GetMe(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// GetDashboard returns aggregated usage stats for the authenticated user.
 func GetDashboard(c *gin.Context) {
 	user := middleware.GetUser(c)
 

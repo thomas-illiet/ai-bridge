@@ -19,7 +19,9 @@ import (
 	aibpkg "github.com/thomas-illiet/ai-bridge/aibridge"
 	"github.com/thomas-illiet/ai-bridge/config"
 	"github.com/thomas-illiet/ai-bridge/database"
-	"github.com/thomas-illiet/ai-bridge/handlers"
+	handlerAdmin "github.com/thomas-illiet/ai-bridge/handlers/admin"
+	handlerPublic "github.com/thomas-illiet/ai-bridge/handlers/public"
+	handlerUser "github.com/thomas-illiet/ai-bridge/handlers/user"
 	"github.com/thomas-illiet/ai-bridge/middleware"
 	"github.com/thomas-illiet/ai-bridge/models"
 )
@@ -79,52 +81,52 @@ func main() {
 	tracer := otel.GetTracerProvider().Tracer("ai-bridge")
 	recorder := aibpkg.NewGORMRecorder()
 
-	r.GET("/health", handlers.HealthCheck)
-	r.GET("/api/status", handlers.GetStatus(cfg))
+	r.GET("/health", handlerPublic.HealthCheck)
+	r.GET("/api/status", handlerPublic.GetStatus(cfg))
 	r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(reg, promhttp.HandlerOpts{})))
 
 	api := r.Group("/api/v1")
 	api.Use(middleware.JWTAuth(cfg))
 	{
-		api.GET("/me", handlers.GetMe)
-		api.POST("/access-requests", handlers.CreateAccessRequest(cfg))
-		api.GET("/access-requests/me", handlers.GetMyAccessRequest)
+		api.GET("/me", handlerUser.GetMe)
+		api.POST("/access-requests", handlerUser.CreateAccessRequest(cfg))
+		api.GET("/access-requests/me", handlerUser.GetMyAccessRequest)
 
 		user := api.Group("")
 		user.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleManager))
-		api.GET("/dashboard", handlers.GetDashboard)
-		api.GET("/models", handlers.GetModels(cfg))
-		user.POST("/tokens", handlers.CreateToken(cfg.TokenSecret))
-		user.GET("/tokens", handlers.ListTokens)
-		user.DELETE("/tokens/:id", handlers.RevokeToken)
-		user.GET("/history", handlers.GetHistory)
-		user.GET("/history/:id", handlers.GetHistoryDetail)
+		api.GET("/dashboard", handlerUser.GetDashboard)
+		api.GET("/models", handlerUser.GetModels(cfg))
+		user.POST("/tokens", handlerUser.CreateToken(cfg.TokenSecret))
+		user.GET("/tokens", handlerUser.ListTokens)
+		user.DELETE("/tokens/:id", handlerUser.RevokeToken)
+		user.GET("/history", handlerUser.GetHistory)
+		user.GET("/history/:id", handlerUser.GetHistoryDetail)
 
 		elevated := api.Group("/admin")
 		elevated.Use(middleware.RequireAnyRole(middleware.RoleAdmin, middleware.RoleManager))
-		elevated.GET("/users", handlers.ListUsers)
-		elevated.PATCH("/users/:id", handlers.UpdateUserRole)
-		elevated.DELETE("/users/:id", handlers.DeleteUser)
-		elevated.GET("/users/:id/stats", handlers.GetUserStats)
-		elevated.GET("/tokens", handlers.AdminListTokens)
-		elevated.DELETE("/tokens/:id", handlers.AdminRevokeToken)
-		elevated.GET("/history", handlers.AdminGetHistory)
-		elevated.GET("/history/:id", handlers.AdminGetHistoryDetail)
-		elevated.GET("/access-requests", handlers.AdminListAccessRequests)
-		elevated.POST("/access-requests/:id/approve", handlers.AdminApproveRequest(cfg))
-		elevated.POST("/access-requests/:id/reject", handlers.AdminRejectRequest(cfg))
+		elevated.GET("/users", handlerAdmin.ListUsers)
+		elevated.PATCH("/users/:id", handlerAdmin.UpdateUserRole)
+		elevated.DELETE("/users/:id", handlerAdmin.DeleteUser)
+		elevated.GET("/users/:id/stats", handlerAdmin.GetUserStats)
+		elevated.GET("/tokens", handlerAdmin.ListTokens)
+		elevated.DELETE("/tokens/:id", handlerAdmin.RevokeToken)
+		elevated.GET("/history", handlerAdmin.GetHistory)
+		elevated.GET("/history/:id", handlerAdmin.GetHistoryDetail)
+		elevated.GET("/access-requests", handlerAdmin.ListAccessRequests)
+		elevated.POST("/access-requests/:id/approve", handlerAdmin.ApproveRequest(cfg))
+		elevated.POST("/access-requests/:id/reject", handlerAdmin.RejectRequest(cfg))
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.RequireRole(middleware.RoleAdmin))
-		admin.GET("/whitelist", handlers.ListWhitelist)
-		admin.POST("/whitelist", handlers.AddWhitelist)
-		admin.DELETE("/whitelist/:id", handlers.DeleteWhitelist)
-		admin.PATCH("/whitelist/:id", handlers.ToggleWhitelist)
-		admin.GET("/service-accounts", handlers.ListServiceAccounts)
-		admin.POST("/service-accounts", handlers.CreateServiceAccount)
-		admin.DELETE("/service-accounts/:id", handlers.DeleteServiceAccount)
-		admin.GET("/service-accounts/:id/tokens", handlers.ListServiceTokens)
-		admin.POST("/service-accounts/:id/tokens", handlers.CreateServiceToken(cfg.TokenSecret))
+		admin.GET("/whitelist", handlerAdmin.ListWhitelist)
+		admin.POST("/whitelist", handlerAdmin.AddWhitelist)
+		admin.DELETE("/whitelist/:id", handlerAdmin.DeleteWhitelist)
+		admin.PATCH("/whitelist/:id", handlerAdmin.ToggleWhitelist)
+		admin.GET("/service-accounts", handlerAdmin.ListServiceAccounts)
+		admin.POST("/service-accounts", handlerAdmin.CreateServiceAccount)
+		admin.DELETE("/service-accounts/:id", handlerAdmin.DeleteServiceAccount)
+		admin.GET("/service-accounts/:id/tokens", handlerAdmin.ListServiceTokens)
+		admin.POST("/service-accounts/:id/tokens", handlerAdmin.CreateServiceToken(cfg.TokenSecret))
 	}
 
 	if len(providers) > 0 {
