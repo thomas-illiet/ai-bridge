@@ -112,7 +112,12 @@ func AdminApproveRequest(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "role is required"})
 			return
 		}
-		if body.Role != models.RoleUser && body.Role != models.RoleAdmin {
+		if callerIsManager(c) {
+			if body.Role != models.RoleUser {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "managers can only grant the 'user' role"})
+				return
+			}
+		} else if body.Role != models.RoleUser && body.Role != models.RoleAdmin {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "role must be 'user' or 'admin'"})
 			return
 		}

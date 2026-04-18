@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { adminListAccessRequests, adminApproveRequest, adminRejectRequest } from '@/services/api'
 import type { AccessRequest } from '@/services/api'
+
+const auth = useAuthStore()
 
 const requests    = ref<AccessRequest[]>([])
 const pendingCount = ref(0)
@@ -150,7 +153,7 @@ onMounted(load)
             <label>Grant role</label>
             <select v-model="approveRole" class="role-select full">
               <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option v-if="auth.isAdmin" value="admin">Admin</option>
             </select>
           </div>
 

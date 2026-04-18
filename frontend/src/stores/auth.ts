@@ -43,11 +43,13 @@ export const useAuthStore = defineStore('auth', () => {
     return dbRole.value === role
   }
 
-  const isAdmin = computed(() => dbRole.value === 'admin')
+  const isAdmin    = computed(() => dbRole.value === 'admin')
+  const isManager  = computed(() => dbRole.value === 'manager')
+  const isElevated = computed(() => dbRole.value === 'admin' || dbRole.value === 'manager')
 
   return {
     authenticated, tokenParsed, dbRole,
-    username, email, fullName, isAdmin,
+    username, email, fullName, isAdmin, isManager, isElevated,
     sync, fetchRole, login, logout, hasRole,
   }
 })

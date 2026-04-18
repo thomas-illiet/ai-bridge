@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	maxDaysUser  = 30
-	maxDaysAdmin = 365
+	maxDaysUser         = 5
+	maxDaysAdmin        = 30
+	maxDaysServiceToken = 365
 )
 
 type createTokenRequest struct {
@@ -39,8 +40,11 @@ func CreateToken(secret string) gin.HandlerFunc {
 		}
 
 		maxDays := maxDaysUser
-		if len(user.Roles) > 0 && user.Roles[0] == models.RoleAdmin {
-			maxDays = maxDaysAdmin
+		for _, r := range user.Roles {
+			if r == models.RoleAdmin || r == models.RoleManager {
+				maxDays = maxDaysAdmin
+				break
+			}
 		}
 		if req.DurationDays > maxDays {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("duration exceeds maximum allowed (%d days)", maxDays)})

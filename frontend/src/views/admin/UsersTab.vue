@@ -8,7 +8,7 @@ import UserStatsModal from './UserStatsModal.vue'
 import DeleteUserModal from './DeleteUserModal.vue'
 
 export interface RegisteredUser {
-  id: string; username: string; email: string; role: 'admin' | 'user' | 'none'
+  id: string; username: string; email: string; role: 'admin' | 'manager' | 'user' | 'none' | 'service'
   roleExpiresAt: string | null
   createdAt: string; totalRequests: number; totalInput: number; totalOutput: number
 }
@@ -92,7 +92,7 @@ function onDeleted(id: string) {
 }
 
 function roleBadgeClass(role: string) {
-  return { 'badge-admin': role === 'admin', 'badge-user': role === 'user', 'badge-none': role === 'none' }
+  return { 'badge-admin': role === 'admin', 'badge-manager': role === 'manager', 'badge-user': role === 'user', 'badge-none': role === 'none', 'badge-service': role === 'service' }
 }
 </script>
 
@@ -137,16 +137,16 @@ function roleBadgeClass(role: string) {
                 <button class="action-item" @click="statsUser = u; closeMenus()">View stats</button>
                 <button
                   class="action-item"
-                  :disabled="u.id === auth.tokenParsed?.sub"
-                  :title="u.id === auth.tokenParsed?.sub ? 'Cannot edit your own role' : ''"
-                  @click="u.id !== auth.tokenParsed?.sub && openEditModal(u)"
+                  :disabled="u.id === auth.tokenParsed?.sub || u.role === 'service' || (auth.isManager && u.role === 'admin')"
+                  :title="u.role === 'service' ? 'Manage service accounts in the Service Accounts tab' : u.id === auth.tokenParsed?.sub ? 'Cannot edit your own role' : (auth.isManager && u.role === 'admin') ? 'Managers cannot edit admin accounts' : ''"
+                  @click="u.role !== 'service' && u.id !== auth.tokenParsed?.sub && !(auth.isManager && u.role === 'admin') && openEditModal(u)"
                 >Edit role &amp; expiry</button>
                 <div class="action-divider" />
                 <button
                   class="action-item danger"
-                  :disabled="u.id === auth.tokenParsed?.sub"
-                  :title="u.id === auth.tokenParsed?.sub ? 'Cannot delete your own account' : ''"
-                  @click="u.id !== auth.tokenParsed?.sub && (deleteUser = u, closeMenus())"
+                  :disabled="u.id === auth.tokenParsed?.sub || u.role === 'service' || (auth.isManager && u.role === 'admin')"
+                  :title="u.role === 'service' ? 'Delete service accounts in the Service Accounts tab' : u.id === auth.tokenParsed?.sub ? 'Cannot delete your own account' : (auth.isManager && u.role === 'admin') ? 'Managers cannot delete admin accounts' : ''"
+                  @click="u.role !== 'service' && u.id !== auth.tokenParsed?.sub && !(auth.isManager && u.role === 'admin') && (deleteUser = u, closeMenus())"
                 >Delete user</button>
               </div>
             </div>
@@ -175,7 +175,8 @@ function roleBadgeClass(role: string) {
           <div class="form-group">
             <label>Role</label>
             <select v-model="editRole" class="role-select-full">
-              <option value="admin">admin</option>
+              <option v-if="auth.isAdmin" value="admin">admin</option>
+              <option v-if="auth.isAdmin" value="manager">manager</option>
               <option value="user">user</option>
               <option value="none">none</option>
             </select>
@@ -216,9 +217,11 @@ function roleBadgeClass(role: string) {
 .num { text-align: right; font-variant-numeric: tabular-nums; color: #334155; font-weight: 500; }
 .actions { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
 .badge { padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-.badge-admin { background: #ede9fe; color: #6d28d9; }
-.badge-user  { background: #dcfce7; color: #166534; }
-.badge-none  { background: #f1f5f9; color: #64748b; }
+.badge-admin    { background: #ede9fe; color: #6d28d9; }
+.badge-manager  { background: #fef3c7; color: #92400e; }
+.badge-user     { background: #dcfce7; color: #166534; }
+.badge-none     { background: #f1f5f9; color: #64748b; }
+.badge-service  { background: #dbeafe; color: #1d4ed8; }
 
 .expiry-label { font-size: 0.83rem; color: #475569; }
 .expiry-label.expired { color: #dc2626; font-weight: 600; }

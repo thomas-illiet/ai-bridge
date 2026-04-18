@@ -44,11 +44,11 @@ onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
 
     <div class="navbar-links">
       <RouterLink v-if="!auth.authenticated" to="/">Home</RouterLink>
-      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isAdmin)" to="/dashboard">Dashboard</RouterLink>
-      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isAdmin)" to="/tokens">Tokens</RouterLink>
-      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isAdmin)" to="/history">History</RouterLink>
-      <RouterLink v-if="auth.isAdmin" to="/admin">Admin</RouterLink>
-      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isAdmin)" to="/help">Help</RouterLink>
+      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isElevated)" to="/dashboard">Dashboard</RouterLink>
+      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isElevated)" to="/tokens">Tokens</RouterLink>
+      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isElevated)" to="/history">History</RouterLink>
+      <RouterLink v-if="auth.isElevated" to="/admin">Admin</RouterLink>
+      <RouterLink v-if="auth.authenticated && (auth.hasRole('user') || auth.isElevated)" to="/help">Help</RouterLink>
     </div>
 
     <div class="navbar-auth">

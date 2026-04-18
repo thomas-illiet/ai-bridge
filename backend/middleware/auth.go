@@ -19,9 +19,10 @@ const ctxUserKey = "user"
 
 // Role constants — re-exported from models for convenience.
 const (
-	RoleAdmin = models.RoleAdmin
-	RoleUser  = models.RoleUser
-	RoleNone  = models.RoleNone
+	RoleAdmin   = models.RoleAdmin
+	RoleManager = models.RoleManager
+	RoleUser    = models.RoleUser
+	RoleNone    = models.RoleNone
 )
 
 type KeycloakClaims struct {

@@ -90,6 +90,14 @@ func ListUsers(c *gin.Context) {
 // GetUserStats returns detailed usage stats for a specific user.
 func GetUserStats(c *gin.Context) {
 	id := c.Param("id")
+	if callerIsManager(c) {
+		var target models.RegisteredUser
+		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil ||
+			target.Role == models.RoleAdmin || target.Role == models.RoleService {
+			c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot view stats for this user"})
+			return
+		}
+	}
 
 	var totalRequests int64
 	database.DB.Model(&models.AibridgeInterception{}).
@@ -142,6 +150,17 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
 		return
 	}
+	if callerIsManager(c) {
+		var target models.RegisteredUser
+		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if target.Role == models.RoleAdmin || target.Role == models.RoleService {
+			c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot delete this user"})
+			return
+		}
+	}
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", id).Delete(&models.ClientToken{}).Error; err != nil {
 			return err
@@ -177,11 +196,27 @@ func UpdateUserRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if body.Role != models.RoleAdmin && body.Role != models.RoleUser && body.Role != models.RoleNone {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role: must be admin, user, or none"})
+	if body.Role != models.RoleAdmin && body.Role != models.RoleManager &&
+		body.Role != models.RoleUser && body.Role != models.RoleNone {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role: must be admin, manager, user, or none"})
 		return
 	}
 	caller := middleware.GetUser(c)
+	if callerIsManager(c) {
+		if body.Role != models.RoleUser && body.Role != models.RoleNone {
+			c.JSON(http.StatusForbidden, gin.H{"error": "managers can only assign user or none roles"})
+			return
+		}
+		var target models.RegisteredUser
+		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if target.Role == models.RoleAdmin || target.Role == models.RoleService {
+			c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot modify this user"})
+			return
+		}
+	}
 	if caller != nil && caller.ID == id && body.Role != models.RoleAdmin {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot change your own role"})
 		return

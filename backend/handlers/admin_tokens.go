@@ -37,6 +37,10 @@ func AdminListTokens(c *gin.Context) {
 		Joins("LEFT JOIN registered_users ON registered_users.id = client_tokens.user_id").
 		Where("client_tokens.deleted_at IS NULL")
 
+	if callerIsManager(c) {
+		q = q.Where("registered_users.role != ?", models.RoleService)
+	}
+
 	if !includeRevoked {
 		q = q.Where("client_tokens.revoked_at IS NULL")
 	}
@@ -73,6 +77,23 @@ func AdminRevokeToken(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token id"})
 		return
+	}
+
+	if callerIsManager(c) {
+		var token models.ClientToken
+		if err := database.DB.Where("id = ?", id).First(&token).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
+			return
+		}
+		var owner models.RegisteredUser
+		if err := database.DB.Where("id = ?", token.UserID).First(&owner).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "owner lookup failed"})
+			return
+		}
+		if owner.Role == models.RoleService {
+			c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot revoke service account tokens"})
+			return
+		}
 	}
 
 	result := database.DB.Model(&models.ClientToken{}).

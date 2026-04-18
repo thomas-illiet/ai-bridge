@@ -14,7 +14,7 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin'] },
+      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin', 'manager'] },
     },
     {
       path: '/profile',
@@ -38,13 +38,13 @@ const router = createRouter({
       path: '/help',
       name: 'help',
       component: () => import('@/views/HelpView.vue'),
-      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin'] },
+      meta: { requiresAuth: true, requiresAnyRole: ['user', 'admin', 'manager'] },
     },
     {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/AdminView.vue'),
-      meta: { requiresAuth: true, requiresRole: 'admin' },
+      meta: { requiresAuth: true, requiresAnyRole: ['admin', 'manager'] },
     },
   ],
 })

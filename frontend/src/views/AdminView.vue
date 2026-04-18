@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import UsersTab    from './admin/UsersTab.vue'
-import WhitelistTab from './admin/WhitelistTab.vue'
-import TokensTab   from './admin/TokensTab.vue'
-import HistoryTab  from './admin/HistoryTab.vue'
-import RequestsTab from './admin/RequestsTab.vue'
+import { useAuthStore } from '@/stores/auth'
+import UsersTab           from './admin/UsersTab.vue'
+import WhitelistTab        from './admin/WhitelistTab.vue'
+import TokensTab           from './admin/TokensTab.vue'
+import HistoryTab          from './admin/HistoryTab.vue'
+import RequestsTab         from './admin/RequestsTab.vue'
+import ServiceAccountsTab  from './admin/ServiceAccountsTab.vue'
 import { adminListAccessRequests } from '@/services/api'
 
-const activeTab   = ref<'requests' | 'users' | 'whitelist' | 'tokens' | 'history'>('requests')
+const auth = useAuthStore()
+
+const activeTab   = ref<'requests' | 'users' | 'whitelist' | 'tokens' | 'service-accounts' | 'history'>('requests')
 const pendingCount = ref(0)
 
 onMounted(async () => {
@@ -30,17 +34,19 @@ onMounted(async () => {
         Requests
         <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'users' }"     @click="activeTab = 'users'">Users</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'whitelist' }" @click="activeTab = 'whitelist'">IP Whitelist</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'tokens' }"    @click="activeTab = 'tokens'">Tokens</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'history' }"   @click="activeTab = 'history'">History</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'users' }"    @click="activeTab = 'users'">Users</button>
+      <button v-if="auth.isAdmin" class="tab-btn" :class="{ active: activeTab === 'whitelist' }" @click="activeTab = 'whitelist'">IP Whitelist</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'tokens' }"           @click="activeTab = 'tokens'">Tokens</button>
+      <button v-if="auth.isAdmin" class="tab-btn" :class="{ active: activeTab === 'service-accounts' }" @click="activeTab = 'service-accounts'">Service Accounts</button>
+      <button class="tab-btn" :class="{ active: activeTab === 'history' }"          @click="activeTab = 'history'">History</button>
     </div>
 
     <RequestsTab  v-if="activeTab === 'requests'" />
     <UsersTab     v-if="activeTab === 'users'" />
-    <WhitelistTab v-if="activeTab === 'whitelist'" />
-    <TokensTab    v-if="activeTab === 'tokens'" />
-    <HistoryTab   v-if="activeTab === 'history'" />
+    <WhitelistTab v-if="activeTab === 'whitelist' && auth.isAdmin" />
+    <TokensTab          v-if="activeTab === 'tokens'" />
+    <ServiceAccountsTab v-if="activeTab === 'service-accounts' && auth.isAdmin" />
+    <HistoryTab         v-if="activeTab === 'history'" />
   </div>
 </template>
 

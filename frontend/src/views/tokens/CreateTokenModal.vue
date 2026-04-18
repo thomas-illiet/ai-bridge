@@ -10,24 +10,22 @@ const auth  = useAuthStore()
 const store = useTokenStore()
 
 const name     = ref('')
-const duration = ref(7)
+const duration = ref(auth.isElevated ? 7 : 5)
 const creating = ref(false)
 const error    = ref<string | null>(null)
 
 const durationOptions = computed(() => {
-  const base = [
-    { label: '1 day', value: 1 },
-    { label: '7 days', value: 7 },
-    { label: '30 days', value: 30 },
-  ]
-  if (auth.isAdmin) {
-    base.push(
-      { label: '90 days', value: 90 },
-      { label: '6 months', value: 180 },
-      { label: '12 months', value: 365 },
-    )
+  if (auth.isElevated) {
+    return [
+      { label: '1 day', value: 1 },
+      { label: '7 days', value: 7 },
+      { label: '30 days', value: 30 },
+    ]
   }
-  return base
+  return [
+    { label: '1 day', value: 1 },
+    { label: '5 days', value: 5 },
+  ]
 })
 
 async function submit() {
@@ -36,7 +34,7 @@ async function submit() {
   try {
     const result = await store.generateToken(name.value.trim(), duration.value)
     emit('created', result)
-    name.value = ''; duration.value = 7
+    name.value = ''; duration.value = auth.isElevated ? 7 : 5
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
     error.value = msg || 'Failed to create token'
@@ -58,7 +56,7 @@ async function submit() {
           <select id="token-duration" v-model="duration">
             <option v-for="opt in durationOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
-          <p class="field-hint">Max duration: {{ auth.isAdmin ? '12 months' : '30 days' }}</p>
+          <p class="field-hint">Max duration: {{ auth.isElevated ? '30 days' : '5 days' }}</p>
         </div>
         <div v-if="error" class="error-msg">{{ error }}</div>
         <div class="modal-actions">
