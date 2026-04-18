@@ -10,6 +10,7 @@ import (
 	"github.com/thomas-illiet/ai-bridge/config"
 )
 
+// GetModels returns the list of available models for the requested provider (openai or ollama).
 func GetModels(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		provider := c.Query("provider")
@@ -42,6 +43,7 @@ func GetModels(cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
+// fetchOpenAIModels queries the OpenAI API and returns the list of model IDs.
 func fetchOpenAIModels(apiKey string) ([]string, error) {
 	req, _ := http.NewRequest("GET", "https://api.openai.com/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -72,6 +74,7 @@ func fetchOpenAIModels(apiKey string) ([]string, error) {
 	return ids, nil
 }
 
+// fetchOllamaModels queries the Ollama API and returns the list of model names.
 func fetchOllamaModels(baseURL string) ([]string, error) {
 	url := strings.TrimRight(baseURL, "/") + "/api/tags"
 	resp, err := http.Get(url)

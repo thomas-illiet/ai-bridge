@@ -43,6 +43,7 @@ var sortableColumns = map[string]string{
 	"duration":     "EXTRACT(EPOCH FROM (COALESCE(ai.ended_at, NOW()) - ai.started_at))",
 	"inputTokens":  "input_tokens",
 	"outputTokens": "output_tokens",
+	"username":     "COALESCE(ru.username, ai.initiator_id)",
 }
 
 // HistoryQuery runs a paginated, sortable interception query with a shared WHERE clause.

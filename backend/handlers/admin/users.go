@@ -20,11 +20,6 @@ type userSummary struct {
 	TotalOutput   int64 `json:"totalOutput"`
 }
 
-type userRequestCount struct {
-	InitiatorID string `json:"initiatorId"`
-	Count       int64  `json:"count"`
-}
-
 type userTokenSum struct {
 	InitiatorID string `json:"initiatorId"`
 	TotalInput  int64  `json:"totalInput"`
@@ -46,47 +41,62 @@ type userModelCount struct {
 	Count int64  `json:"count"`
 }
 
+var allowedUserSortColumns = map[string]string{
+	"username":        "u.username",
+	"email":           "u.email",
+	"role":            "u.role",
+	"role_expires_at": "u.role_expires_at",
+	"created_at":      "u.created_at",
+	"total_requests":  "total_requests",
+	"total_input":     "total_input",
+	"total_output":    "total_output",
+}
+
+// ListUsers returns all registered users with their aggregated request and token statistics.
 func ListUsers(c *gin.Context) {
-	var users []models.RegisteredUser
-	if err := database.DB.Order("created_at asc").Find(&users).Error; err != nil {
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortDir := c.DefaultQuery("sort_dir", "asc")
+	col, ok := allowedUserSortColumns[sortBy]
+	if !ok {
+		col = "u.created_at"
+	}
+	if sortDir != "asc" {
+		sortDir = "desc"
+	}
+
+	var result []userSummary
+	rawSQL := `
+		SELECT u.*,
+			COALESCE(req.cnt, 0)        AS total_requests,
+			COALESCE(tok.total_input, 0)  AS total_input,
+			COALESCE(tok.total_output, 0) AS total_output
+		FROM registered_users u
+		LEFT JOIN (
+			SELECT initiator_id, COUNT(*) AS cnt
+			FROM aibridge_interceptions
+			GROUP BY initiator_id
+		) req ON req.initiator_id = u.id
+		LEFT JOIN (
+			SELECT ai.initiator_id,
+				COALESCE(SUM(atu.input_tokens),  0) AS total_input,
+				COALESCE(SUM(atu.output_tokens), 0) AS total_output
+			FROM aibridge_token_usages atu
+			JOIN aibridge_interceptions ai ON ai.id = atu.interception_id
+			GROUP BY ai.initiator_id
+		) tok ON tok.initiator_id = u.id
+		ORDER BY ` + col + ` ` + sortDir
+
+	if err := database.DB.Raw(rawSQL).Scan(&result).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	var reqCounts []userRequestCount
-	database.DB.Model(&models.AibridgeInterception{}).
-		Select("initiator_id, COUNT(*) as count").
-		Group("initiator_id").
-		Scan(&reqCounts)
-
-	var tokenSums []userTokenSum
-	database.DB.Model(&models.AibridgeTokenUsage{}).
-		Select("ai.initiator_id, COALESCE(SUM(aibridge_token_usages.input_tokens),0) as total_input, COALESCE(SUM(aibridge_token_usages.output_tokens),0) as total_output").
-		Joins("JOIN aibridge_interceptions ai ON ai.id = aibridge_token_usages.interception_id").
-		Group("ai.initiator_id").
-		Scan(&tokenSums)
-
-	reqMap := make(map[string]int64, len(reqCounts))
-	for _, r := range reqCounts {
-		reqMap[r.InitiatorID] = r.Count
-	}
-	tokMap := make(map[string]userTokenSum, len(tokenSums))
-	for _, t := range tokenSums {
-		tokMap[t.InitiatorID] = t
-	}
-
-	result := make([]userSummary, len(users))
-	for i, u := range users {
-		result[i] = userSummary{
-			RegisteredUser: u,
-			TotalRequests:  reqMap[u.ID],
-			TotalInput:     tokMap[u.ID].TotalInput,
-			TotalOutput:    tokMap[u.ID].TotalOutput,
-		}
+	if result == nil {
+		result = []userSummary{}
 	}
 	c.JSON(http.StatusOK, gin.H{"users": result})
 }
 
+// GetUserStats returns detailed usage statistics for a specific user.
 func GetUserStats(c *gin.Context) {
 	id := c.Param("id")
 	if common.CallerIsManager(c) {
@@ -141,6 +151,7 @@ func GetUserStats(c *gin.Context) {
 	})
 }
 
+// DeleteUser removes a user and all their tokens from the database.
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 	caller := middleware.GetUser(c)
@@ -183,6 +194,7 @@ func DeleteUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// UpdateUserRole updates the role and optional expiry date of a user.
 func UpdateUserRole(c *gin.Context) {
 	id := c.Param("id")
 	var body struct {

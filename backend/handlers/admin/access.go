@@ -13,9 +13,24 @@ import (
 	"github.com/thomas-illiet/ai-bridge/services"
 )
 
+var allowedAccessSortColumns = map[string]string{
+	"created_at": "created_at",
+	"status":     "status",
+}
+
+// ListAccessRequests returns all access requests, optionally filtered by status, with a pending count.
 func ListAccessRequests(c *gin.Context) {
 	status := c.Query("status")
-	q := database.DB.Preload("User").Order("created_at DESC")
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+	col, ok := allowedAccessSortColumns[sortBy]
+	if !ok {
+		col = "created_at"
+	}
+	if sortDir != "asc" {
+		sortDir = "desc"
+	}
+	q := database.DB.Preload("User").Order(col + " " + sortDir)
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
@@ -32,6 +47,7 @@ func ListAccessRequests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"requests": requests, "pendingCount": pending})
 }
 
+// ApproveRequest approves a pending access request and assigns the specified role to the user.
 func ApproveRequest(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -95,6 +111,7 @@ func ApproveRequest(cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
+// RejectRequest rejects a pending access request with a reviewer note.
 func RejectRequest(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

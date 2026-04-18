@@ -1,0 +1,94 @@
+# -- Global image registry prefix (e.g. "registry.example.com/mirror"). Prepended to all image repositories when set.
+imageRegistry: ""
+
+# -- Global image pull policy
+imagePullPolicy: IfNotPresent
+
+# -- Image pull secrets applied to all pods
+imagePullSecrets: []
+# - name: my-registry-secret
+
+backend:
+  image:
+    repository: ghcr.io/thomas-illiet/ai-bridge-backend
+    tag: latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8585
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  # -- All backend environment variables
+  config:
+    SERVER_PORT: "8585"
+    OIDC_ISSUER_URL: "http://keycloak:8180/realms/ai-bridge"
+    OIDC_INTERNAL_URL: ""
+    OIDC_CLIENT_ID: "ai-bridge-frontend"
+    OIDC_JWKS_URL: ""
+    ALLOWED_ORIGINS: "http://localhost"
+    DATABASE_DSN: ""          # required — set via --set or existingSecret
+    TOKEN_SECRET: ""          # required — set via --set or existingSecret
+    OPENAI_API_KEY: ""
+    OLLAMA_BASE_URL: ""
+    OLLAMA_NUM_CTX: "4096"
+    TRUSTED_PROXIES: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    SMTP_HOST: ""
+    SMTP_PORT: "587"
+    SMTP_USER: ""
+    SMTP_FROM: ""
+    SMTP_TO: ""
+    APP_URL: "http://localhost"
+    ROLE_EXPIRY_INTERVAL_SEC: "60"
+
+  # -- Name of an existing Secret whose keys are added as env vars (DATABASE_DSN, TOKEN_SECRET, etc.)
+  existingSecret: ""
+
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+
+frontend:
+  image:
+    repository: ghcr.io/thomas-illiet/ai-bridge-frontend
+    tag: latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 8080
+
+  # -- nginx resolver used inside the container (kube-dns)
+  dnsResolver: "kube-dns.kube-system.svc.cluster.local"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ai-bridge.example.com
+  tls: []
+  # - secretName: ai-bridge-tls
+  #   hosts:
+  #     - ai-bridge.example.com

@@ -14,6 +14,14 @@ export function tokenStatus(token: { revokedAt: string | null; expiresAt: string
   return 'active'
 }
 
+export function isExpiringSoon(token: { revokedAt: string | null; expiresAt: string | null }, days = 3): boolean {
+  if (token.revokedAt || !token.expiresAt) return false
+  const expiry = new Date(token.expiresAt)
+  const now = new Date()
+  if (expiry <= now) return false
+  return expiry.getTime() - now.getTime() < days * 24 * 60 * 60 * 1000
+}
+
 export function interceptionDuration(row: { startedAt: string; endedAt: string | null }): string {
   if (!row.endedAt) return '—'
   const ms = new Date(row.endedAt).getTime() - new Date(row.startedAt).getTime()

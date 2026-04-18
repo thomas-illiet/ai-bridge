@@ -98,8 +98,10 @@ func main() {
 		api.GET("/models", handlerUser.GetModels(cfg))
 		user.POST("/tokens", handlerUser.CreateToken(cfg.TokenSecret))
 		user.GET("/tokens", handlerUser.ListTokens)
+		user.PATCH("/tokens/:id", handlerUser.UpdateToken)
 		user.DELETE("/tokens/:id", handlerUser.RevokeToken)
 		user.GET("/history", handlerUser.GetHistory)
+		user.GET("/history/stats", handlerUser.GetHistoryStats)
 		user.GET("/history/:id", handlerUser.GetHistoryDetail)
 
 		elevated := api.Group("/admin")
@@ -110,6 +112,7 @@ func main() {
 		elevated.GET("/users/:id/stats", handlerAdmin.GetUserStats)
 		elevated.GET("/tokens", handlerAdmin.ListTokens)
 		elevated.DELETE("/tokens/:id", handlerAdmin.RevokeToken)
+		elevated.POST("/tokens/:id/unrevoke", handlerAdmin.UnrevokeToken)
 		elevated.GET("/history", handlerAdmin.GetHistory)
 		elevated.GET("/history/:id", handlerAdmin.GetHistoryDetail)
 		elevated.GET("/access-requests", handlerAdmin.ListAccessRequests)
@@ -143,7 +146,7 @@ func main() {
 
 		aib := r.Group("")
 		aib.Use(middleware.JWTAuth(cfg))
-		aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin))
+		aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleService, middleware.RoleManager))
 		aib.Use(middleware.IPWhitelist(cfg.TrustedProxies))
 		aib.Use(middleware.AIBridgeActor())
 		aib.Any("/openai/*path", gin.WrapH(bridge))

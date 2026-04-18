@@ -9,10 +9,11 @@ const emit = defineEmits<{ close: []; created: [result: CreateTokenResponse] }>(
 const auth  = useAuthStore()
 const store = useTokenStore()
 
-const name     = ref('')
-const duration = ref(auth.isElevated ? 7 : 5)
-const creating = ref(false)
-const error    = ref<string | null>(null)
+const name        = ref('')
+const description = ref('')
+const duration    = ref(auth.isElevated ? 7 : 5)
+const creating    = ref(false)
+const error       = ref<string | null>(null)
 
 const durationOptions = computed(() => {
   if (auth.isElevated) {
@@ -32,9 +33,9 @@ async function submit() {
   if (!name.value.trim()) return
   creating.value = true; error.value = null
   try {
-    const result = await store.generateToken(name.value.trim(), duration.value)
+    const result = await store.generateToken(name.value.trim(), duration.value, description.value.trim())
     emit('created', result)
-    name.value = ''; duration.value = auth.isElevated ? 7 : 5
+    name.value = ''; description.value = ''; duration.value = auth.isElevated ? 7 : 5
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
     error.value = msg || 'Failed to create token'
@@ -50,6 +51,10 @@ async function submit() {
         <div class="field">
           <label for="token-name">Token name</label>
           <input id="token-name" v-model="name" type="text" placeholder="e.g. CI Pipeline, Local Dev" maxlength="100" autofocus />
+        </div>
+        <div class="field">
+          <label for="token-description">Description <span class="optional">(optional)</span></label>
+          <textarea id="token-description" v-model="description" placeholder="What is this token used for?" maxlength="255" rows="2" />
         </div>
         <div class="field">
           <label for="token-duration">Expiration</label>
@@ -70,21 +75,4 @@ async function submit() {
   </div>
 </template>
 
-<style scoped>
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal { background: white; border-radius: 12px; padding: 2rem; width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 1.25rem; }
-.modal h2 { font-size: 1.25rem; font-weight: 700; margin: 0; }
-.field { display: flex; flex-direction: column; gap: 0.4rem; }
-.field label { font-size: 0.875rem; font-weight: 500; color: #374151; }
-.field input, .field select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background: white; box-sizing: border-box; }
-.field input:focus, .field select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
-.field-hint { font-size: 0.78rem; color: #94a3b8; margin: 0; }
-.error-msg { color: #ef4444; font-size: 0.875rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
-.btn { padding: 0.4rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
-.btn-primary { background: #3b82f6; color: white; }
-.btn-primary:hover:not(:disabled) { background: #2563eb; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-outline { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
-.btn-outline:hover { background: #f1f5f9; }
-</style>
+<style scoped></style>

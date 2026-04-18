@@ -1,7 +1,14 @@
 <script setup lang="ts">
 interface TokenTotals   { totalInput: number; totalOutput: number }
 interface LastRequest   { model: string; provider: string; startedAt: string }
-defineProps<{ totalRequests: number; tokens: TokenTotals; providerCount: number; activeUsers: number; lastRequest: LastRequest | null }>()
+defineProps<{
+  totalRequests: number
+  tokens: TokenTotals
+  providerCount: number
+  activeUsers?: number
+  showActiveUsers: boolean
+  lastRequest: LastRequest | null
+}>()
 
 function fmtNum(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -38,9 +45,9 @@ function relativeDate(iso: string): string {
       <span class="stat-label">Active Providers</span>
       <span class="stat-value">{{ providerCount }}</span>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" v-if="showActiveUsers">
       <span class="stat-label">Active Users</span>
-      <span class="stat-value">{{ fmtNum(activeUsers) }}</span>
+      <span class="stat-value">{{ fmtNum(activeUsers ?? 0) }}</span>
     </div>
     <div class="stat-card stat-card--last" v-if="lastRequest">
       <span class="stat-label">Last Request</span>

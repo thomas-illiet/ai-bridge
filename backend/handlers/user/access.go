@@ -12,6 +12,7 @@ import (
 	"github.com/thomas-illiet/ai-bridge/services"
 )
 
+// CreateAccessRequest handles submission of a new access request by the authenticated user.
 func CreateAccessRequest(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := middleware.GetUser(c)
@@ -55,6 +56,7 @@ func CreateAccessRequest(cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
+// GetMyAccessRequest returns the most recent access request for the authenticated user.
 func GetMyAccessRequest(c *gin.Context) {
 	user := middleware.GetUser(c)
 	if user == nil {

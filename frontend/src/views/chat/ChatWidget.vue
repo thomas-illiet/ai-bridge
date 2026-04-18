@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import { useChatStore, newId } from '@/stores/chat'
-import { getValidToken } from '@/services/keycloak'
+import { getValidToken } from '@/services/oidc'
 import { getModels, getStatus } from '@/services/api'
 import ChatMessage from './ChatMessage.vue'
 

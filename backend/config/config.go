@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	ServerPort        string
-	KeycloakBaseURL   string
-	KeycloakIssuerURL string
-	KeycloakRealm     string
-	KeycloakClientID  string
-	AllowedOrigins    string
+	ServerPort     string
+	OIDCIssuerURL     string
+	OIDCInternalURL   string // internal URL for health checks (defaults to OIDCIssuerURL)
+	OIDCClientID      string
+	OIDCJWKSUrl       string
+	AllowedOrigins string
 	DatabaseDSN       string
 	TokenSecret       string
 	OpenAIAPIKey      string
@@ -50,16 +49,13 @@ func getEnvInt(key string, fallback int) int {
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
-	keycloakBaseURL := getEnv("KEYCLOAK_BASE_URL", "http://localhost:8180")
-	keycloakRealm := getEnv("KEYCLOAK_REALM", "ai-bridge")
-
 	cfg := &Config{
-		ServerPort:        getEnv("SERVER_PORT", "8585"),
-		KeycloakBaseURL:   keycloakBaseURL,
-		KeycloakIssuerURL: getEnv("KEYCLOAK_ISSUER_URL", keycloakBaseURL),
-		KeycloakRealm:     keycloakRealm,
-		KeycloakClientID:  getEnv("KEYCLOAK_CLIENT_ID", "ai-bridge-frontend"),
-		AllowedOrigins:    getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
+		ServerPort:     getEnv("SERVER_PORT", "8585"),
+		OIDCIssuerURL:   getEnv("OIDC_ISSUER_URL", "http://localhost:8180/realms/ai-bridge"),
+		OIDCInternalURL: getEnv("OIDC_INTERNAL_URL", ""),
+		OIDCClientID:    getEnv("OIDC_CLIENT_ID", "ai-bridge-frontend"),
+		OIDCJWKSUrl:     getEnv("OIDC_JWKS_URL", ""),
+		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
 		DatabaseDSN:       getEnv("DATABASE_DSN", ""),
 		TokenSecret:       getEnv("TOKEN_SECRET", ""),
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
@@ -76,8 +72,8 @@ func Load() (*Config, error) {
 		AppURL:                getEnv("APP_URL", "http://localhost:5173"),
 	}
 
-	if cfg.KeycloakBaseURL == "" || cfg.KeycloakRealm == "" {
-		return nil, fmt.Errorf("KEYCLOAK_BASE_URL and KEYCLOAK_REALM are required")
+	if cfg.OIDCIssuerURL == "" {
+		return nil, fmt.Errorf("OIDC_ISSUER_URL is required")
 	}
 	if cfg.DatabaseDSN == "" {
 		return nil, fmt.Errorf("DATABASE_DSN is required")
@@ -89,10 +85,16 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-func (c *Config) JWTSUrl() string {
-	return fmt.Sprintf("%s/realms/%s/protocol/openid-connect/certs", c.KeycloakBaseURL, c.KeycloakRealm)
+// JWKSUrl returns the explicit JWKS URL override if set, or empty string to trigger OIDC discovery.
+func (c *Config) JWKSUrl() string {
+	return c.OIDCJWKSUrl
 }
 
-func (c *Config) IssuerURL() string {
-	return fmt.Sprintf("%s/realms/%s", c.KeycloakIssuerURL, c.KeycloakRealm)
+// OIDCHealthURL returns the URL used for OIDC health checks.
+// Uses OIDCInternalURL when set (for container-internal routing), otherwise falls back to OIDCIssuerURL.
+func (c *Config) OIDCHealthURL() string {
+	if c.OIDCInternalURL != "" {
+		return c.OIDCInternalURL
+	}
+	return c.OIDCIssuerURL
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/thomas-illiet/ai-bridge/models"
 )
 
+// GetHistory returns a paginated list of all interceptions, optionally filtered by user or search term.
 func GetHistory(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
@@ -46,6 +47,7 @@ func GetHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"interceptions": rows, "total": total, "page": page, "pageSize": pageSize})
 }
 
+// GetHistoryDetail returns the full details and prompts of any single interception by ID.
 func GetHistoryDetail(c *gin.Context) {
 	id := c.Param("id")
 

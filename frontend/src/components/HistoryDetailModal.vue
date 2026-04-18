@@ -31,11 +31,11 @@ defineEmits<{ close: [] }>()
         <template v-else-if="detail">
           <div class="token-row">
             <div class="token-card">
-              <span class="token-label">Input tokens</span>
+              <span class="token-label">Input</span>
               <span class="token-val">{{ fmtNum(detail.inputTokens) }}</span>
             </div>
             <div class="token-card">
-              <span class="token-label">Output tokens</span>
+              <span class="token-label">Output</span>
               <span class="token-val">{{ fmtNum(detail.outputTokens) }}</span>
             </div>
           </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { getDashboard } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 import axios from 'axios'
 import type { StatusResponse } from '@/services/api'
 import StatGrid from '@/views/dashboard/StatGrid.vue'
@@ -18,8 +19,9 @@ interface TokenTotals   { totalInput: number; totalOutput: number }
 interface LastRequest    { model: string; provider: string; startedAt: string }
 interface DashboardData {
   user:          string
+  scope:         'user' | 'global'
   totalRequests: number
-  activeUsers:   number
+  activeUsers?:  number
   tokens:        TokenTotals
   daily:         DailyCount[]
   dailyTokens:   DailyTokens[]
@@ -28,6 +30,8 @@ interface DashboardData {
   lastRequest:   LastRequest | null
 }
 
+const auth       = useAuthStore()
+const scope      = ref<'user' | 'global'>('user')
 const data       = ref<DashboardData | null>(null)
 const status     = ref<StatusResponse | null>(null)
 const loading    = ref(true)
@@ -40,8 +44,9 @@ let interval: ReturnType<typeof setInterval>
 async function fetchAll() {
   if (data.value) refreshing.value = true
   try {
+    const effectiveScope = auth.isElevated ? scope.value : 'user'
     const [dashRes, statusRes] = await Promise.allSettled([
-      getDashboard(),
+      getDashboard(effectiveScope),
       axios.get<StatusResponse>('/api/status'),
     ])
     if (dashRes.status === 'fulfilled') data.value = dashRes.value.data
@@ -59,6 +64,7 @@ async function fetchAll() {
   }
 }
 
+watch(scope, () => fetchAll())
 onMounted(() => { fetchAll(); interval = setInterval(fetchAll, 30_000) })
 onUnmounted(() => clearInterval(interval))
 
@@ -92,10 +98,20 @@ function formatTime(d: Date) {
         <h1>Dashboard</h1>
         <p v-if="data" class="subtitle">Welcome back, <strong>{{ data.user }}</strong></p>
       </div>
-      <span v-if="lastChecked" class="last-checked">
-        <span v-if="refreshing" class="spin-icon" />
-        Last updated: {{ formatTime(lastChecked) }}
-      </span>
+      <div class="header-right">
+        <div v-if="auth.isElevated" class="scope-toggle">
+          <button class="scope-btn" :class="{ active: scope === 'user' }" @click="scope = 'user'">
+            Mon activité
+          </button>
+          <button class="scope-btn" :class="{ active: scope === 'global' }" @click="scope = 'global'">
+            Global
+          </button>
+        </div>
+        <span v-if="lastChecked" class="last-checked">
+          <span v-if="refreshing" class="spin-icon" />
+          Last updated: {{ formatTime(lastChecked) }}
+        </span>
+      </div>
     </div>
 
     <div v-if="loading" class="skeleton-section">
@@ -118,6 +134,7 @@ function formatTime(d: Date) {
         :tokens="data.tokens"
         :provider-count="data.byProvider.length"
         :active-users="data.activeUsers"
+        :show-active-users="data.scope === 'global'"
         :last-request="data.lastRequest"
       />
 
@@ -151,6 +168,35 @@ function formatTime(d: Date) {
 h1 { font-size: 1.75rem; font-weight: 700; margin: 0; }
 .subtitle { color: #64748b; font-size: 0.9rem; margin: 0.2rem 0 0; }
 
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+.scope-toggle {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.scope-btn {
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  transition: background 0.15s, color 0.15s;
+}
+.scope-btn.active {
+  background: white;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
 .last-checked {
   display: flex;
   align-items: center;

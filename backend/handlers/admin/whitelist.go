@@ -11,17 +11,37 @@ import (
 	"github.com/thomas-illiet/ai-bridge/database"
 	"github.com/thomas-illiet/ai-bridge/middleware"
 	"github.com/thomas-illiet/ai-bridge/models"
+	"gorm.io/gorm"
 )
 
+var allowedWhitelistSortColumns = map[string]string{
+	"cidr":       "cidr",
+	"created_by": "created_by",
+	"created_at": "created_at",
+	"enabled":    "enabled",
+}
+
+// ListWhitelist returns all IP whitelist entries ordered by creation date.
 func ListWhitelist(c *gin.Context) {
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+	col, ok := allowedWhitelistSortColumns[sortBy]
+	if !ok {
+		col = "created_at"
+	}
+	if sortDir != "asc" {
+		sortDir = "desc"
+	}
+
 	var entries []models.IPWhitelistEntry
-	if err := database.DB.Order("created_at desc").Find(&entries).Error; err != nil {
+	if err := database.DB.Order(gorm.Expr(col + " " + sortDir)).Find(&entries).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"entries": entries})
 }
 
+// AddWhitelist adds a new IP or CIDR block to the whitelist and invalidates the IP cache.
 func AddWhitelist(c *gin.Context) {
 	var body struct {
 		CIDR        string `json:"cidr" binding:"required"`
@@ -58,6 +78,7 @@ func AddWhitelist(c *gin.Context) {
 	c.JSON(http.StatusCreated, entry)
 }
 
+// DeleteWhitelist removes a whitelist entry by ID and invalidates the IP cache.
 func DeleteWhitelist(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -77,6 +98,7 @@ func DeleteWhitelist(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// ToggleWhitelist enables or disables a whitelist entry and invalidates the IP cache.
 func ToggleWhitelist(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

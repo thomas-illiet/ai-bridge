@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { isAuthenticated, getUserInfo, login, logout } from '@/services/keycloak'
+import { isAuthenticated, getUserInfo, login, logout } from '@/services/oidc'
 import { getMe } from '@/services/api'
 
 interface TokenParsed {

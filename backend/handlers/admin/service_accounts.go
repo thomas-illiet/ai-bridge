@@ -14,9 +14,25 @@ import (
 
 const maxDaysServiceToken = 365
 
+var allowedServiceAccountSortColumns = map[string]string{
+	"username":   "username",
+	"created_at": "created_at",
+}
+
+// ListServiceAccounts returns all users with the service role.
 func ListServiceAccounts(c *gin.Context) {
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+	col, ok := allowedServiceAccountSortColumns[sortBy]
+	if !ok {
+		col = "created_at"
+	}
+	if sortDir != "asc" {
+		sortDir = "desc"
+	}
+
 	var accounts []models.RegisteredUser
-	if err := database.DB.Where("role = ?", models.RoleService).Order("created_at desc").Find(&accounts).Error; err != nil {
+	if err := database.DB.Where("role = ?", models.RoleService).Order(col + " " + sortDir).Find(&accounts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -26,6 +42,7 @@ func ListServiceAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"serviceAccounts": accounts})
 }
 
+// CreateServiceAccount creates a new service account with the given username and description.
 func CreateServiceAccount(c *gin.Context) {
 	var body struct {
 		Username    string `json:"username" binding:"required,min=1,max=100"`
@@ -43,6 +60,7 @@ func CreateServiceAccount(c *gin.Context) {
 	c.JSON(http.StatusCreated, account)
 }
 
+// DeleteServiceAccount removes a service account and its associated tokens.
 func DeleteServiceAccount(c *gin.Context) {
 	id := c.Param("id")
 	if err := services.DeleteServiceAccount(id); err != nil {
@@ -56,6 +74,7 @@ func DeleteServiceAccount(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// ListServiceTokens returns all tokens belonging to a service account.
 func ListServiceTokens(c *gin.Context) {
 	id := c.Param("id")
 
@@ -67,7 +86,9 @@ func ListServiceTokens(c *gin.Context) {
 	}
 
 	includeRevoked := c.Query("include_revoked") == "true"
-	tokens, err := services.ListUserTokens(id, includeRevoked)
+	sortBy := c.DefaultQuery("sort_by", "created_at")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+	tokens, err := services.ListUserTokens(id, includeRevoked, sortBy, sortDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,6 +99,7 @@ func ListServiceTokens(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tokens": tokens})
 }
 
+// CreateServiceToken creates a new token for the specified service account.
 func CreateServiceToken(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
@@ -107,7 +129,7 @@ func CreateServiceToken(secret string) gin.HandlerFunc {
 			return
 		}
 
-		record, rawToken, err := services.CreateToken(id, body.Name, secret, body.DurationDays)
+		record, rawToken, err := services.CreateToken(id, body.Name, "", secret, body.DurationDays)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create token"})
 			return

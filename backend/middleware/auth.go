@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -22,10 +24,11 @@ const (
 	RoleAdmin   = models.RoleAdmin
 	RoleManager = models.RoleManager
 	RoleUser    = models.RoleUser
+	RoleService = models.RoleService
 	RoleNone    = models.RoleNone
 )
 
-type KeycloakClaims struct {
+type OIDCClaims struct {
 	jwt.RegisteredClaims
 	PreferredUsername string `json:"preferred_username"`
 	Email             string `json:"email"`
@@ -33,13 +36,44 @@ type KeycloakClaims struct {
 	FamilyName        string `json:"family_name"`
 }
 
+func resolveJWKSUrl(ctx context.Context, cfg *config.Config) (string, error) {
+	if u := cfg.JWKSUrl(); u != "" {
+		return u, nil
+	}
+	discoveryURL := strings.TrimRight(cfg.OIDCIssuerURL, "/") + "/.well-known/openid-configuration"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, discoveryURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("OIDC discovery failed: %w", err)
+	}
+	defer resp.Body.Close()
+	var doc struct {
+		JWKSURI string `json:"jwks_uri"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return "", fmt.Errorf("OIDC discovery decode failed: %w", err)
+	}
+	if doc.JWKSURI == "" {
+		return "", fmt.Errorf("OIDC discovery returned empty jwks_uri")
+	}
+	return doc.JWKSURI, nil
+}
+
 func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	jwks, err := keyfunc.NewDefaultCtx(ctx, []string{cfg.JWTSUrl()})
+	jwksURL, err := resolveJWKSUrl(ctx, cfg)
 	if err != nil {
-		panic("failed to fetch JWKS from Keycloak: " + err.Error())
+		panic("failed to resolve JWKS URL from OIDC provider: " + err.Error())
+	}
+
+	jwks, err := keyfunc.NewDefaultCtx(ctx, []string{jwksURL})
+	if err != nil {
+		panic("failed to fetch JWKS from OIDC provider: " + err.Error())
 	}
 
 	return func(c *gin.Context) {
@@ -51,17 +85,17 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Try Keycloak JWT first.
-		keycloakClaims := &KeycloakClaims{}
-		token, err := jwt.ParseWithClaims(tokenStr, keycloakClaims, jwks.KeyfuncCtx(c.Request.Context()),
-			jwt.WithIssuer(cfg.IssuerURL()),
+		// Try OIDC JWT first.
+		oidcClaims := &OIDCClaims{}
+		token, err := jwt.ParseWithClaims(tokenStr, oidcClaims, jwks.KeyfuncCtx(c.Request.Context()),
+			jwt.WithIssuer(cfg.OIDCIssuerURL),
 			jwt.WithExpirationRequired(),
 		)
 		if err == nil && token.Valid {
 			registered, err := services.GetOrCreateUser(
-				keycloakClaims.Subject,
-				keycloakClaims.PreferredUsername,
-				keycloakClaims.Email,
+				oidcClaims.Subject,
+				oidcClaims.PreferredUsername,
+				oidcClaims.Email,
 			)
 			if err != nil || registered == nil {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user registration failed"})
@@ -71,8 +105,8 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 				ID:                registered.ID,
 				Username:          registered.Username,
 				Email:             registered.Email,
-				FirstName:         keycloakClaims.GivenName,
-				LastName:          keycloakClaims.FamilyName,
+				FirstName:         oidcClaims.GivenName,
+				LastName:          oidcClaims.FamilyName,
 				Roles:             []string{registered.Role},
 				PreferredUsername: registered.Username,
 			})

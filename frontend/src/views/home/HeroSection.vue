@@ -14,7 +14,7 @@ const auth = useAuthStore()
         Go to Dashboard
       </RouterLink>
       <button v-else-if="!auth.authenticated" class="btn btn-primary" @click="auth.login()">
-        Sign In with Keycloak
+        Sign in to continue
       </button>
     </div>
   </section>

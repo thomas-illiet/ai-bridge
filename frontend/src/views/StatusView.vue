@@ -39,7 +39,7 @@ onUnmounted(() => clearInterval(interval))
 
 const SERVICE_LABELS: Record<string, string> = {
   database: 'PostgreSQL',
-  keycloak: 'Keycloak',
+  oidc: 'OIDC',
   openai:   'OpenAI',
   ollama:   'Ollama',
 }

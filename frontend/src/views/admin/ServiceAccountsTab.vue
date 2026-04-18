@@ -6,16 +6,34 @@ import {
 } from '@/services/api'
 import type { ServiceAccount, ClientToken } from '@/services/api'
 import { formatDate, tokenStatus } from '@/utils/format'
+import { useMinLoad } from '@/composables/useMinLoad'
 
 const accounts        = ref<ServiceAccount[]>([])
-const loading         = ref(true)
+const { loading, withLoad }                   = useMinLoad(300, true)
+const { loading: tokensLoading, withLoad: withTokensLoad } = useMinLoad()
 const error           = ref<string | null>(null)
 
 const selectedAccount = ref<ServiceAccount | null>(null)
 const tokens          = ref<ClientToken[]>([])
-const tokensLoading   = ref(false)
 const showRevoked     = ref(false)
 const revokingId      = ref<string | null>(null)
+
+const sortBy     = ref('created_at')
+const sortDir    = ref<'asc' | 'desc'>('desc')
+const tokSortBy  = ref('created_at')
+const tokSortDir = ref<'asc' | 'desc'>('desc')
+
+function toggleSort(col: string) {
+  if (sortBy.value === col) { sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc' }
+  else { sortBy.value = col; sortDir.value = 'desc' }
+  loadAccounts()
+}
+
+function toggleTokSort(col: string) {
+  if (tokSortBy.value === col) { tokSortDir.value = tokSortDir.value === 'asc' ? 'desc' : 'asc' }
+  else { tokSortBy.value = col; tokSortDir.value = 'desc' }
+  loadTokens()
+}
 
 const showCreateAccountModal = ref(false)
 const showCreateTokenModal   = ref(false)
@@ -29,27 +47,23 @@ const deleteTarget     = ref<ServiceAccount | null>(null)
 const deleting         = ref(false)
 
 async function loadAccounts() {
-  loading.value = true
   error.value = null
-  try {
-    const res = await listServiceAccounts()
-    accounts.value = res.data.serviceAccounts ?? []
-  } catch {
-    error.value = 'Failed to load service accounts'
-  } finally {
-    loading.value = false
-  }
+  await withLoad(async () => {
+    try {
+      const res = await listServiceAccounts(sortBy.value, sortDir.value)
+      accounts.value = res.data.serviceAccounts ?? []
+    } catch {
+      error.value = 'Failed to load service accounts'
+    }
+  })
 }
 
 async function loadTokens() {
   if (!selectedAccount.value) return
-  tokensLoading.value = true
-  try {
-    const res = await listServiceTokens(selectedAccount.value.id, showRevoked.value)
+  await withTokensLoad(async () => {
+    const res = await listServiceTokens(selectedAccount.value!.id, showRevoked.value, tokSortBy.value, tokSortDir.value)
     tokens.value = res.data.tokens ?? []
-  } finally {
-    tokensLoading.value = false
-  }
+  })
 }
 
 async function selectAccount(account: ServiceAccount) {
@@ -149,13 +163,8 @@ onMounted(loadAccounts)
     <!-- Error -->
     <div v-if="error" class="state-msg error">{{ error }}</div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="empty-card">
-      <p class="empty-title">Loading…</p>
-    </div>
-
     <!-- Empty -->
-    <div v-else-if="accounts.length === 0 && !loading" class="empty-card">
+    <div v-if="!loading && accounts.length === 0" class="empty-card">
       <div class="empty-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -169,24 +178,34 @@ onMounted(loadAccounts)
     <table v-else class="data-table">
       <thead>
         <tr>
-          <th>Name</th>
+          <th class="sortable" :class="{ active: sortBy === 'username' }" @click="toggleSort('username')">Name <span class="sort-icon">{{ sortBy === 'username' ? (sortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
           <th>Description</th>
-          <th>Created</th>
+          <th class="sortable" :class="{ active: sortBy === 'created_at' }" @click="toggleSort('created_at')">Created <span class="sort-icon">{{ sortBy === 'created_at' ? (sortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="a in accounts" :key="a.id" :class="{ 'row-selected': selectedAccount?.id === a.id }">
-          <td class="bold">{{ a.username }}</td>
-          <td class="muted">{{ a.description || '—' }}</td>
-          <td class="muted">{{ formatDate(a.createdAt) }}</td>
-          <td class="actions">
-            <button class="btn btn-sm" @click="selectAccount(a)">
-              {{ selectedAccount?.id === a.id ? 'Tokens ▾' : 'Manage Tokens' }}
-            </button>
-            <button class="btn btn-sm btn-danger" @click="deleteTarget = a">Delete</button>
-          </td>
-        </tr>
+        <template v-if="loading">
+          <tr v-for="i in 4" :key="i" class="skeleton-row">
+            <td><div class="skeleton-bar skeleton-bar--md" /></td>
+            <td><div class="skeleton-bar skeleton-bar--lg" /></td>
+            <td><div class="skeleton-bar skeleton-bar--sm" /></td>
+            <td class="actions"><div class="skeleton-bar skeleton-bar--btn" /></td>
+          </tr>
+        </template>
+        <template v-else>
+          <tr v-for="a in accounts" :key="a.id" :class="{ 'row-selected': selectedAccount?.id === a.id }">
+            <td class="bold">{{ a.username }}</td>
+            <td class="muted">{{ a.description || '—' }}</td>
+            <td class="muted">{{ formatDate(a.createdAt) }}</td>
+            <td class="actions">
+              <button class="btn btn-sm" @click="selectAccount(a)">
+                {{ selectedAccount?.id === a.id ? 'Tokens ▾' : 'Manage Tokens' }}
+              </button>
+              <button class="btn btn-sm btn-danger" @click="deleteTarget = a">Delete</button>
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
 
@@ -200,6 +219,7 @@ onMounted(loadAccounts)
         <div class="panel-actions">
           <label class="toggle-label">
             <input type="checkbox" :checked="showRevoked" @change="toggleShowRevoked" />
+            <span class="toggle-switch" />
             Show revoked
           </label>
           <button class="btn btn-sm btn-primary" @click="showCreateTokenModal = true; formError = null">
@@ -209,31 +229,46 @@ onMounted(loadAccounts)
         </div>
       </div>
 
-      <div v-if="tokensLoading" class="panel-loading">Loading tokens…</div>
-      <div v-else-if="tokens.length === 0" class="panel-empty">No tokens yet.</div>
+      <div v-if="!tokensLoading && tokens.length === 0" class="panel-empty">No tokens yet.</div>
       <table v-else class="data-table">
         <thead>
           <tr>
-            <th>Name</th><th>Created</th><th>Expires</th><th>Last Used</th><th>Status</th><th>Actions</th>
+            <th class="sortable" :class="{ active: tokSortBy === 'name' }" @click="toggleTokSort('name')">Name <span class="sort-icon">{{ tokSortBy === 'name' ? (tokSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
+            <th class="sortable" :class="{ active: tokSortBy === 'created_at' }" @click="toggleTokSort('created_at')">Created <span class="sort-icon">{{ tokSortBy === 'created_at' ? (tokSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
+            <th class="sortable" :class="{ active: tokSortBy === 'expires_at' }" @click="toggleTokSort('expires_at')">Expires <span class="sort-icon">{{ tokSortBy === 'expires_at' ? (tokSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
+            <th class="sortable" :class="{ active: tokSortBy === 'last_used_at' }" @click="toggleTokSort('last_used_at')">Last Used <span class="sort-icon">{{ tokSortBy === 'last_used_at' ? (tokSortDir === 'asc' ? '↑' : '↓') : '↕' }}</span></th>
+            <th>Status</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in tokens" :key="t.id" :class="{ dimmed: tokenStatus(t) !== 'active' }">
-            <td class="bold">{{ t.name }}</td>
-            <td class="muted">{{ formatDate(t.createdAt) }}</td>
-            <td class="muted">{{ t.expiresAt ? formatDate(t.expiresAt) : '—' }}</td>
-            <td class="muted">{{ t.lastUsedAt ? formatDate(t.lastUsedAt) : 'Never' }}</td>
-            <td><span class="badge" :class="`badge-tok-${tokenStatus(t)}`">{{ tokenStatus(t) }}</span></td>
-            <td class="actions">
-              <button
-                v-if="tokenStatus(t) === 'active'"
-                class="btn btn-sm btn-danger"
-                :disabled="revokingId === t.id"
-                @click="handleRevokeToken(t.id)"
-              >{{ revokingId === t.id ? 'Revoking…' : 'Revoke' }}</button>
-              <span v-else class="muted" style="font-size:0.8rem">—</span>
-            </td>
-          </tr>
+          <template v-if="tokensLoading">
+            <tr v-for="i in 3" :key="i" class="skeleton-row">
+              <td><div class="skeleton-bar skeleton-bar--md" /></td>
+              <td><div class="skeleton-bar skeleton-bar--sm" /></td>
+              <td><div class="skeleton-bar skeleton-bar--xs" /></td>
+              <td><div class="skeleton-bar skeleton-bar--sm" /></td>
+              <td><div class="skeleton-bar skeleton-bar--pill" /></td>
+              <td><div class="skeleton-bar skeleton-bar--btn" /></td>
+            </tr>
+          </template>
+          <template v-else>
+            <tr v-for="t in tokens" :key="t.id" :class="{ dimmed: tokenStatus(t) !== 'active' }">
+              <td class="bold">{{ t.name }}</td>
+              <td class="muted">{{ formatDate(t.createdAt) }}</td>
+              <td class="muted">{{ t.expiresAt ? formatDate(t.expiresAt) : '—' }}</td>
+              <td class="muted">{{ t.lastUsedAt ? formatDate(t.lastUsedAt) : 'Never' }}</td>
+              <td><span class="badge" :class="`badge-tok-${tokenStatus(t)}`">{{ tokenStatus(t) }}</span></td>
+              <td class="actions">
+                <button
+                  v-if="tokenStatus(t) === 'active'"
+                  class="btn btn-sm btn-danger"
+                  :disabled="revokingId === t.id"
+                  @click="handleRevokeToken(t.id)"
+                >{{ revokingId === t.id ? 'Revoking…' : 'Revoke' }}</button>
+                <span v-else class="muted" style="font-size:0.8rem">—</span>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -356,57 +391,7 @@ onMounted(loadAccounts)
 </template>
 
 <style scoped>
-.tab-content { display: flex; flex-direction: column; gap: 1.25rem; }
-.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.sub { font-size: 0.85rem; color: #64748b; margin: 0; }
-.state-msg { font-size: 0.9rem; }
-.state-msg.error { color: #ef4444; }
-
-/* Empty state */
-.empty-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 3rem 2rem; background: white; border: 1px dashed #e2e8f0; border-radius: 12px; text-align: center; }
-.empty-icon { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 16px; background: #f1f5f9; color: #94a3b8; margin-bottom: 0.25rem; }
-.empty-title { font-size: 1rem; font-weight: 600; color: #1e293b; margin: 0; }
-.empty-sub { font-size: 0.85rem; color: #94a3b8; margin: 0; max-width: 320px; line-height: 1.5; }
-
-/* Table */
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-.data-table thead tr:first-child th:first-child { border-radius: 10px 0 0 0; }
-.data-table thead tr:first-child th:last-child  { border-radius: 0 10px 0 0; }
-.data-table tbody tr:last-child td:first-child   { border-radius: 0 0 0 10px; }
-.data-table tbody tr:last-child td:last-child    { border-radius: 0 0 10px 0; }
-.data-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid #f1f5f9; }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr.row-selected { background: #f0f9ff; }
-.data-table tr.dimmed td { opacity: 0.5; }
-.bold { font-weight: 600; color: #1e293b; }
-.muted { color: #64748b; }
-.actions { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
-
-/* Badges */
-.badge { padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-.badge-tok-active  { background: #dcfce7; color: #166534; }
-.badge-tok-revoked { background: #f1f5f9; color: #64748b; }
-.badge-tok-expired { background: #fef3c7; color: #92400e; }
-
-/* Buttons */
-.btn { padding: 0.45rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: background 0.12s; }
-.btn-sm { padding: 0.25rem 0.65rem; font-size: 0.8rem; }
-.btn-primary { background: #3b82f6; color: white; }
-.btn-primary:hover:not(:disabled) { background: #2563eb; }
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-danger { background: #fee2e2; color: #dc2626; }
-.btn-danger:hover:not(:disabled) { background: #fecaca; }
-.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-outline { background: white; color: #374151; border: 1px solid #e2e8f0; }
-.btn-outline:hover { background: #f8fafc; }
-.btn-copy { background: #f1f5f9; color: #374151; }
-.btn-copy:hover { background: #e2e8f0; }
-.btn-danger-solid { padding: 0.4rem 1rem; border: none; border-radius: 6px; background: #dc2626; color: white; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
-.btn-danger-solid:hover:not(:disabled) { background: #b91c1c; }
-.btn-danger-solid:disabled { opacity: 0.55; cursor: not-allowed; }
-
-/* Token sub-panel */
+.hint { font-weight: 400; font-size: 0.78rem; color: #94a3b8; }
 .token-panel { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
 .panel-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
@@ -414,28 +399,6 @@ onMounted(loadAccounts)
 .panel-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 .panel-loading { padding: 1rem; color: #64748b; font-size: 0.88rem; }
 .panel-empty { padding: 1rem; color: #94a3b8; font-size: 0.88rem; font-style: italic; }
-.toggle-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 500; color: #64748b; cursor: pointer; user-select: none; white-space: nowrap; }
-.toggle-label input[type="checkbox"] { cursor: pointer; accent-color: #3b82f6; width: 14px; height: 14px; }
-
-/* Modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; }
-.modal { background: white; border-radius: 12px; padding: 1.75rem; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 1rem; }
-.modal-wide { max-width: 560px; }
-.modal h3 { font-size: 1.1rem; font-weight: 700; margin: 0; }
-.modal-sub { font-size: 0.9rem; color: #475569; margin: 0; }
-.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: #374151; }
-.required { color: #ef4444; }
-.optional { font-weight: 400; color: #94a3b8; }
-.hint { font-weight: 400; font-size: 0.78rem; color: #94a3b8; }
-.text-input { padding: 0.45rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; background: white; outline: none; width: 100%; box-sizing: border-box; }
-.text-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
-.form-error { color: #ef4444; font-size: 0.85rem; margin: 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
-.btn-cancel { padding: 0.4rem 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #374151; font-size: 0.88rem; cursor: pointer; }
-.btn-cancel:hover { background: #f8fafc; }
-
-/* Raw token display */
 .token-warning { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.85rem; color: #92400e; font-weight: 500; }
 .token-display { display: flex; align-items: flex-start; gap: 0.6rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem; }
 .token-code { flex: 1; font-family: monospace; font-size: 0.8rem; word-break: break-all; color: #1e293b; }

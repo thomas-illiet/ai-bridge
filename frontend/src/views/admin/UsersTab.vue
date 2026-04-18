@@ -6,6 +6,7 @@ import { formatDate, fmtNum } from '@/utils/format'
 import PaginationBar from '@/components/PaginationBar.vue'
 import UserStatsModal from './UserStatsModal.vue'
 import DeleteUserModal from './DeleteUserModal.vue'
+import { useMinLoad } from '@/composables/useMinLoad'
 
 export interface RegisteredUser {
   id: string; username: string; email: string; role: 'admin' | 'manager' | 'user' | 'none' | 'service'
@@ -16,16 +17,31 @@ export interface RegisteredUser {
 const auth = useAuthStore()
 
 const users      = ref<RegisteredUser[]>([])
-const loading    = ref(true)
+const { loading, withLoad } = useMinLoad(300, true)
 const error      = ref<string | null>(null)
 const saving     = ref(false)
+const sortBy     = ref('created_at')
+const sortDir    = ref<'asc' | 'desc'>('asc')
+
+function sortIcon(col: string) {
+  if (sortBy.value !== col) return '↕'
+  return sortDir.value === 'asc' ? '↑' : '↓'
+}
+
+function toggleSort(col: string) {
+  if (sortBy.value === col) { sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc' }
+  else { sortBy.value = col; sortDir.value = 'desc' }
+  page.value = 1
+  loadUsers()
+}
 
 async function loadUsers() {
-  try {
-    const res = await listUsers()
-    users.value = res.data.users ?? []
-  } catch { error.value = 'Failed to load users' }
-  finally { loading.value = false }
+  await withLoad(async () => {
+    try {
+      const res = await listUsers(sortBy.value, sortDir.value)
+      users.value = res.data.users ?? []
+    } catch { error.value = 'Failed to load users' }
+  })
 }
 
 // ── edit role modal ───────────────────────────────────────────────────────
@@ -98,27 +114,43 @@ function roleBadgeClass(role: string) {
 
 <template>
   <div class="tab-content">
-    <div v-if="loading" class="state-msg">Loading…</div>
-    <div v-else-if="error" class="state-msg error">{{ error }}</div>
+    <div v-if="!loading && error" class="state-msg error">{{ error }}</div>
+    <div v-else-if="!loading && !error && users.length === 0" class="empty-card">
+      <p class="empty-title">No users found</p>
+    </div>
     <table v-else class="data-table">
       <thead>
         <tr>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Expires</th>
-          <th class="num">Requests</th>
-          <th class="num">Input tokens</th>
-          <th class="num">Output tokens</th>
-          <th>Registered</th>
+          <th class="sortable" :class="{ active: sortBy === 'username' }" @click="toggleSort('username')">Username <span class="sort-icon">{{ sortIcon('username') }}</span></th>
+          <th class="sortable" :class="{ active: sortBy === 'email' }" @click="toggleSort('email')">Email <span class="sort-icon">{{ sortIcon('email') }}</span></th>
+          <th class="col-center sortable" :class="{ active: sortBy === 'role' }" @click="toggleSort('role')">Role <span class="sort-icon">{{ sortIcon('role') }}</span></th>
+          <th class="sortable" :class="{ active: sortBy === 'role_expires_at' }" @click="toggleSort('role_expires_at')">Expires <span class="sort-icon">{{ sortIcon('role_expires_at') }}</span></th>
+          <th class="num sortable" :class="{ active: sortBy === 'total_requests' }" @click="toggleSort('total_requests')">Requests <span class="sort-icon">{{ sortIcon('total_requests') }}</span></th>
+          <th class="num sortable" :class="{ active: sortBy === 'total_input' }" @click="toggleSort('total_input')">Input <span class="sort-icon">{{ sortIcon('total_input') }}</span></th>
+          <th class="num sortable" :class="{ active: sortBy === 'total_output' }" @click="toggleSort('total_output')">Output <span class="sort-icon">{{ sortIcon('total_output') }}</span></th>
+          <th class="sortable" :class="{ active: sortBy === 'created_at' }" @click="toggleSort('created_at')">Registered <span class="sort-icon">{{ sortIcon('created_at') }}</span></th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
+        <template v-if="loading">
+          <tr v-for="i in 6" :key="i" class="skeleton-row">
+            <td><div class="skeleton-bar skeleton-bar--md" /></td>
+            <td><div class="skeleton-bar skeleton-bar--lg" /></td>
+            <td class="col-center"><div class="skeleton-bar skeleton-bar--pill" style="margin:auto" /></td>
+            <td><div class="skeleton-bar skeleton-bar--sm" /></td>
+            <td class="num"><div class="skeleton-bar skeleton-bar--xs" style="margin:auto" /></td>
+            <td class="num"><div class="skeleton-bar skeleton-bar--xs" style="margin:auto" /></td>
+            <td class="num"><div class="skeleton-bar skeleton-bar--xs" style="margin:auto" /></td>
+            <td><div class="skeleton-bar skeleton-bar--sm" /></td>
+            <td><div class="skeleton-bar skeleton-bar--btn" /></td>
+          </tr>
+        </template>
+        <template v-else>
         <tr v-for="u in pagedUsers" :key="u.id">
           <td class="bold">{{ u.username }}</td>
           <td class="muted">{{ u.email || '—' }}</td>
-          <td><span class="badge" :class="roleBadgeClass(u.role)">{{ u.role }}</span></td>
+          <td class="col-center"><span class="badge" :class="roleBadgeClass(u.role)">{{ u.role }}</span></td>
           <td>
             <span class="expiry-label" :class="{ expired: isExpired(u.roleExpiresAt) }">
               {{ expiryLabel(u.roleExpiresAt) }}
@@ -152,11 +184,12 @@ function roleBadgeClass(role: string) {
             </div>
           </td>
         </tr>
+        </template>
       </tbody>
     </table>
 
     <PaginationBar
-      v-if="users.length > 0"
+      v-if="!loading && users.length > 0"
       v-model:page="page"
       v-model:pageSize="pageSize"
       :total="users.length"
@@ -200,60 +233,8 @@ function roleBadgeClass(role: string) {
 </template>
 
 <style scoped>
-.tab-content { display: flex; flex-direction: column; gap: 1.25rem; }
-.state-msg { color: #64748b; font-size: 0.9rem; }
-.state-msg.error { color: #ef4444; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-.data-table th { text-align: left; padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; white-space: nowrap; }
-.data-table th.num { text-align: right; }
-.data-table thead tr:first-child th:first-child { border-radius: 10px 0 0 0; }
-.data-table thead tr:first-child th:last-child  { border-radius: 0 10px 0 0; }
-.data-table tbody tr:last-child td:first-child   { border-radius: 0 0 0 10px; }
-.data-table tbody tr:last-child td:last-child    { border-radius: 0 0 10px 0; }
-.data-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid #f1f5f9; }
-.data-table tr:last-child td { border-bottom: none; }
-.bold { font-weight: 600; color: #1e293b; }
-.muted { color: #64748b; }
-.num { text-align: right; font-variant-numeric: tabular-nums; color: #334155; font-weight: 500; }
-.actions { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
-.badge { padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-.badge-admin    { background: #ede9fe; color: #6d28d9; }
-.badge-manager  { background: #fef3c7; color: #92400e; }
-.badge-user     { background: #dcfce7; color: #166534; }
-.badge-none     { background: #f1f5f9; color: #64748b; }
-.badge-service  { background: #dbeafe; color: #1d4ed8; }
-
 .expiry-label { font-size: 0.83rem; color: #475569; }
 .expiry-label.expired { color: #dc2626; font-weight: 600; }
-
-.action-menu { position: relative; display: inline-block; }
-.btn-action-trigger { display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.65rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #374151; font-size: 0.82rem; font-weight: 500; cursor: pointer; white-space: nowrap; }
-.btn-action-trigger:hover { background: #f1f5f9; border-color: #cbd5e1; }
-.chevron-down { font-size: 0.7rem; color: #94a3b8; }
-.action-dropdown { position: absolute; right: 0; top: calc(100% + 4px); z-index: 200; min-width: 160px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); padding: 0.25rem 0; }
-.action-item { display: block; width: 100%; padding: 0.5rem 0.9rem; background: none; border: none; text-align: left; font-size: 0.85rem; font-weight: 500; color: #374151; cursor: pointer; }
-.action-item:hover:not(:disabled) { background: #f8fafc; }
-.action-item.danger { color: #dc2626; }
-.action-item.danger:hover:not(:disabled) { background: #fef2f2; }
-.action-item:disabled { opacity: 0.4; cursor: not-allowed; }
-.action-divider { height: 1px; background: #f1f5f9; margin: 0.2rem 0; }
-
-/* Modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; }
-.modal { background: white; border-radius: 12px; padding: 1.75rem; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 1rem; }
-.modal h3 { font-size: 1.1rem; font-weight: 700; margin: 0; }
-.modal-sub { font-size: 0.9rem; color: #475569; margin: 0; }
-.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: #374151; }
-.optional { font-weight: 400; color: #94a3b8; }
 .role-select-full { width: 100%; padding: 0.45rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; background: white; outline: none; }
 .role-select-full:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
-.date-input { padding: 0.45rem 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; outline: none; }
-.date-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #bfdbfe; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
-.btn-cancel { padding: 0.4rem 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #374151; font-size: 0.88rem; cursor: pointer; }
-.btn-cancel:hover { background: #f8fafc; }
-.btn-primary { padding: 0.4rem 1rem; border: none; border-radius: 6px; background: #3b82f6; color: white; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
-.btn-primary:hover:not(:disabled) { background: #2563eb; }
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>

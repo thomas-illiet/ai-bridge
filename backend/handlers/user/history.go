@@ -11,6 +11,7 @@ import (
 	"github.com/thomas-illiet/ai-bridge/models"
 )
 
+// GetHistory returns a paginated list of interceptions for the authenticated user.
 func GetHistory(c *gin.Context) {
 	user := middleware.GetUser(c)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -43,6 +44,42 @@ func GetHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"interceptions": rows, "total": total, "page": page, "pageSize": pageSize})
 }
 
+// GetHistoryStats returns aggregate token and request statistics for the authenticated user.
+func GetHistoryStats(c *gin.Context) {
+	user := middleware.GetUser(c)
+
+	type statsRow struct {
+		Total        int64 `gorm:"column:total"`
+		TotalInput   int64 `gorm:"column:total_input"`
+		TotalOutput  int64 `gorm:"column:total_output"`
+	}
+	var stats statsRow
+	database.DB.Raw(`
+		SELECT
+			COUNT(DISTINCT ai.id)                    AS total,
+			COALESCE(SUM(atu.input_tokens),  0)      AS total_input,
+			COALESCE(SUM(atu.output_tokens), 0)      AS total_output
+		FROM aibridge_interceptions ai
+		LEFT JOIN aibridge_token_usages atu ON atu.interception_id = ai.id
+		WHERE ai.initiator_id = ?
+	`, user.ID).Scan(&stats)
+
+	var topModel string
+	database.DB.Raw(`
+		SELECT model FROM aibridge_interceptions
+		WHERE initiator_id = ?
+		GROUP BY model ORDER BY COUNT(*) DESC LIMIT 1
+	`, user.ID).Scan(&topModel)
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":       stats.Total,
+		"totalInput":  stats.TotalInput,
+		"totalOutput": stats.TotalOutput,
+		"topModel":    topModel,
+	})
+}
+
+// GetHistoryDetail returns the full details and prompts of a single interception owned by the authenticated user.
 func GetHistoryDetail(c *gin.Context) {
 	user := middleware.GetUser(c)
 	id := c.Param("id")
