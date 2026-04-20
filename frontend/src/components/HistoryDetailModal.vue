@@ -17,7 +17,7 @@ defineEmits<{ close: [] }>()
         <div class="modal-header">
           <div v-if="detail">
             <h2>{{ detail.model }}</h2>
-            <span class="prov-badge" :style="{ background: providerColor(detail.provider) + '22', color: providerColor(detail.provider) }">
+            <span class="prov-badge" :style="{ background: providerColor(detail.providerType) + '22', color: providerColor(detail.providerType) }">
               {{ detail.provider }}
             </span>
             <span class="meta-info">{{ formatDate(detail.startedAt) }} · {{ interceptionDuration(detail) }}</span>

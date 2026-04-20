@@ -101,7 +101,7 @@ function formatTime(d: Date) {
       <div class="header-right">
         <div v-if="auth.isElevated" class="scope-toggle">
           <button class="scope-btn" :class="{ active: scope === 'user' }" @click="scope = 'user'">
-            Mon activité
+            Mon activity
           </button>
           <button class="scope-btn" :class="{ active: scope === 'global' }" @click="scope = 'global'">
             Global

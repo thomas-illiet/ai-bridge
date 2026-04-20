@@ -79,10 +79,10 @@ export interface StatusResponse {
 
 export const getStatus = () => axios.get<StatusResponse>('/api/status')
 
-export const listTokens = (includeRevoked = false, sortBy = 'created_at', sortDir = 'desc') =>
+export const listTokens = (includeInactive = false, sortBy = 'created_at', sortDir = 'desc') =>
   api.get<{ tokens: ClientToken[] }>('/tokens', {
     params: {
-      ...(includeRevoked ? { include_revoked: 'true' } : {}),
+      ...(includeInactive ? { include_inactive: 'true' } : {}),
       sort_by: sortBy,
       sort_dir: sortDir,
     },
@@ -105,6 +105,7 @@ export interface InterceptionRow {
   initiatorId: string
   username: string
   provider: string
+  providerType: string
   model: string
   startedAt: string
   endedAt: string | null
@@ -141,8 +142,8 @@ export const adminGetHistory = (page: number, pageSize: number, search: string, 
 export const adminGetHistoryDetail = (id: string) =>
   api.get<InterceptionDetail>(`/admin/history/${id}`)
 
-export const adminListTokens = (page: number, pageSize: number, search: string, includeRevoked = false, sortBy = 'created_at', sortDir = 'desc') =>
-  api.get<AdminTokensResponse>('/admin/tokens', { params: { page, pageSize, search, sort_by: sortBy, sort_dir: sortDir, ...(includeRevoked ? { include_revoked: 'true' } : {}) } })
+export const adminListTokens = (page: number, pageSize: number, search: string, includeInactive = false, sortBy = 'created_at', sortDir = 'desc') =>
+  api.get<AdminTokensResponse>('/admin/tokens', { params: { page, pageSize, search, sort_by: sortBy, sort_dir: sortDir, ...(includeInactive ? { include_inactive: 'true' } : {}) } })
 export const adminRevokeToken   = (id: string) => api.delete(`/admin/tokens/${id}`)
 export const adminUnrevokeToken = (id: string) => api.post(`/admin/tokens/${id}/unrevoke`)
 
@@ -166,15 +167,65 @@ export const createServiceAccount = (username: string, description: string) =>
   api.post<ServiceAccount>('/admin/service-accounts', { username, description })
 export const deleteServiceAccount = (id: string) =>
   api.delete(`/admin/service-accounts/${id}`)
-export const listServiceTokens = (id: string, includeRevoked = false, sortBy = 'created_at', sortDir = 'desc') =>
+export const listServiceTokens = (id: string, includeInactive = false, sortBy = 'created_at', sortDir = 'desc') =>
   api.get<{ tokens: ClientToken[] }>(`/admin/service-accounts/${id}/tokens`, {
-    params: { sort_by: sortBy, sort_dir: sortDir, ...(includeRevoked ? { include_revoked: 'true' } : {}) }
+    params: { sort_by: sortBy, sort_dir: sortDir, ...(includeInactive ? { include_inactive: 'true' } : {}) }
   })
 export const createServiceToken = (id: string, name: string, durationDays: number) =>
   api.post<CreateServiceTokenResponse>(`/admin/service-accounts/${id}/tokens`, { name, durationDays })
 
-export const getModels = (provider: 'openai' | 'ollama') =>
+export interface ProviderInfo {
+  name: string
+  type: 'openai' | 'ollama'
+}
+
+export const getAvailableProviders = () =>
+  api.get<{ providers: ProviderInfo[] }>('/providers')
+
+export const getModels = (provider: string) =>
   api.get<{ models: string[] }>('/models', { params: { provider } })
+
+export interface AIProvider {
+  id: string
+  name: string
+  type: 'openai' | 'ollama'
+  baseUrl: string
+  config: Record<string, unknown>
+  enabled: boolean
+  apiKeySet: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateProviderBody {
+  name: string
+  type: 'openai' | 'ollama'
+  base_url: string
+  api_key?: string
+  config?: Record<string, unknown>
+  enabled: boolean
+}
+
+export interface UpdateProviderBody {
+  name?: string
+  base_url?: string
+  api_key?: string
+  config?: Record<string, unknown>
+  enabled?: boolean
+}
+
+export const listProviders = () =>
+  api.get<{ providers: AIProvider[] }>('/admin/providers')
+export const createProvider = (body: CreateProviderBody) =>
+  api.post<{ provider: AIProvider }>('/admin/providers', body)
+export const getProvider = (id: string) =>
+  api.get<{ provider: AIProvider }>(`/admin/providers/${id}`)
+export const updateProvider = (id: string, body: UpdateProviderBody) =>
+  api.put<{ provider: AIProvider }>(`/admin/providers/${id}`, body)
+export const deleteProvider = (id: string) =>
+  api.delete(`/admin/providers/${id}`)
+export const reloadProviders = () =>
+  api.post('/admin/providers/reload')
 
 export const listWhitelist = (sortBy = 'created_at', sortDir = 'desc') =>
   api.get('/admin/whitelist', { params: { sort_by: sortBy, sort_dir: sortDir } })

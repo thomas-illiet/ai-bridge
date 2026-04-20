@@ -24,6 +24,7 @@ import (
 	handlerUser "github.com/thomas-illiet/ai-bridge/handlers/user"
 	"github.com/thomas-illiet/ai-bridge/middleware"
 	"github.com/thomas-illiet/ai-bridge/models"
+	"github.com/thomas-illiet/ai-bridge/services"
 )
 
 func main() {
@@ -59,27 +60,24 @@ func main() {
 		&models.IPWhitelistEntry{},
 		&models.RegisteredUser{},
 		&models.AccessRequest{},
+		&models.AIProvider{},
 	); err != nil {
 		log.Fatalf("auto-migrate error: %v", err)
-	}
-
-	// Build aibridge providers from configured API keys.
-	var providers []aibridge.Provider
-	if cfg.OpenAIAPIKey != "" {
-		providers = append(providers, aibridge.NewOpenAIProvider(
-			aibridge.OpenAIConfig{Key: cfg.OpenAIAPIKey},
-		))
-	}
-	if cfg.OllamaBaseURL != "" {
-		providers = append(providers, aibpkg.NewOllamaProvider(
-			strings.TrimRight(cfg.OllamaBaseURL, "/")+"/v1/", "",
-		))
 	}
 
 	reg := prometheus.NewRegistry()
 	metrics := aibridge.NewMetrics(reg)
 	tracer := otel.GetTracerProvider().Tracer("ai-bridge")
 	recorder := aibpkg.NewGORMRecorder()
+
+	bridgeManager := aibpkg.NewBridgeManager(ctx, recorder, logger, metrics, tracer)
+
+	// Load providers already in DB and initialize the bridge.
+	if initialProviders, err := services.BuildProviders(); err != nil {
+		log.Printf("warning: could not load initial providers: %v", err)
+	} else if err := bridgeManager.Reload(initialProviders); err != nil {
+		log.Printf("warning: could not initialize bridge: %v", err)
+	}
 
 	r.GET("/health", handlerPublic.HealthCheck)
 	r.GET("/api/status", handlerPublic.GetStatus(cfg))
@@ -89,13 +87,17 @@ func main() {
 	api.Use(middleware.JWTAuth(cfg))
 	{
 		api.GET("/me", handlerUser.GetMe)
-		api.POST("/access-requests", handlerUser.CreateAccessRequest(cfg))
-		api.GET("/access-requests/me", handlerUser.GetMyAccessRequest)
+
+		access := api.Group("")
+		access.Use(middleware.RequireAnyRole(middleware.RoleNone))
+		access.POST("/access-requests", handlerUser.CreateAccessRequest(cfg))
+		access.GET("/access-requests/me", handlerUser.GetMyAccessRequest)
 
 		user := api.Group("")
 		user.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleManager))
 		api.GET("/dashboard", handlerUser.GetDashboard)
-		api.GET("/models", handlerUser.GetModels(cfg))
+		api.GET("/providers", handlerUser.ListAvailableProviders)
+		api.GET("/models", handlerUser.GetModels())
 		user.POST("/tokens", handlerUser.CreateToken(cfg.TokenSecret))
 		user.GET("/tokens", handlerUser.ListTokens)
 		user.PATCH("/tokens/:id", handlerUser.UpdateToken)
@@ -130,30 +132,21 @@ func main() {
 		admin.DELETE("/service-accounts/:id", handlerAdmin.DeleteServiceAccount)
 		admin.GET("/service-accounts/:id/tokens", handlerAdmin.ListServiceTokens)
 		admin.POST("/service-accounts/:id/tokens", handlerAdmin.CreateServiceToken(cfg.TokenSecret))
+		admin.GET("/providers", handlerAdmin.ListProviders)
+		admin.POST("/providers", handlerAdmin.CreateProvider(bridgeManager))
+		admin.GET("/providers/:id", handlerAdmin.GetProvider)
+		admin.PUT("/providers/:id", handlerAdmin.UpdateProvider(bridgeManager))
+		admin.DELETE("/providers/:id", handlerAdmin.DeleteProvider(bridgeManager))
+		admin.POST("/providers/reload", handlerAdmin.ReloadProviders(bridgeManager))
 	}
 
-	if len(providers) > 0 {
-		bridge, err := aibridge.NewRequestBridge(ctx, providers, recorder, nil, logger, metrics, tracer)
-		if err != nil {
-			log.Fatalf("aibridge error: %v", err)
-		}
-		defer func(bridge *aibridge.RequestBridge, ctx context.Context) {
-			err := bridge.Shutdown(ctx)
-			if err != nil {
-				log.Fatalf("aibridge error: %v", err)
-			}
-		}(bridge, ctx)
-
-		aib := r.Group("")
-		aib.Use(middleware.JWTAuth(cfg))
-		aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleService, middleware.RoleManager))
-		aib.Use(middleware.IPWhitelist(cfg.TrustedProxies))
-		aib.Use(middleware.AIBridgeActor())
-		aib.Any("/openai/*path", gin.WrapH(bridge))
-		aib.Any("/ollama/*path", gin.WrapH(bridge))
-	} else {
-		logger.Warn(ctx, "no AI providers configured — set OPENAI_API_KEY or OLLAMA_BASE_URL to enable the proxy")
-	}
+	// AI proxy: any path not matched above is forwarded to the bridge manager.
+	aib := r.Group("")
+	aib.Use(middleware.JWTAuth(cfg))
+	aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleService, middleware.RoleManager))
+	aib.Use(middleware.IPWhitelist(cfg.TrustedProxies))
+	aib.Use(middleware.AIBridgeActor())
+	aib.Any("/:provider/*path", gin.WrapH(bridgeManager))
 
 	// Background job: revoke roles that have passed their expiry date.
 	go func() {

@@ -2,7 +2,7 @@
 import { ref, watch, nextTick, computed } from 'vue'
 import { useChatStore, newId } from '@/stores/chat'
 import { getValidToken } from '@/services/oidc'
-import { getModels, getStatus } from '@/services/api'
+import { getModels, getAvailableProviders } from '@/services/api'
 import ChatMessage from './ChatMessage.vue'
 
 const store = useChatStore()
@@ -11,11 +11,7 @@ const input = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
 
 // ── provider / model setup ──────────────────────────────────────────────────
-const allProviders = [
-  { id: 'openai' as const, label: 'OpenAI' },
-  { id: 'ollama' as const, label: 'Ollama' },
-]
-const availableProviders = ref([...allProviders])
+const availableProviders = ref<{ id: string; label: string }[]>([])
 const modelList          = ref<string[]>([])
 const modelLoading       = ref(false)
 const initialized        = ref(false)
@@ -24,14 +20,14 @@ async function initProviders() {
   if (initialized.value) return
   initialized.value = true
   try {
-    const res = await getStatus()
-    const enabled = new Set(res.data.services.filter(s => s.status !== 'disabled').map(s => s.name))
-    const filtered = allProviders.filter(p => enabled.has(p.id))
-    if (filtered.length > 0) availableProviders.value = filtered
+    const res = await getAvailableProviders()
+    availableProviders.value = (res.data.providers ?? []).map(p => ({ id: p.name, label: p.name }))
+  } catch { /* leave empty */ }
+  if (availableProviders.value.length > 0) {
     if (!store.provider || !availableProviders.value.find(p => p.id === store.provider)) {
       store.provider = availableProviders.value[0].id
     }
-  } catch { /* keep allProviders */ }
+  }
   await loadModels()
 }
 
@@ -101,9 +97,7 @@ async function send() {
   try {
     const token = await getValidToken()
     const base = import.meta.env.VITE_API_BASE_URL ?? ''
-    const url = store.provider === 'openai'
-      ? `${base}/openai/v1/chat/completions`
-      : `${base}/ollama/v1/chat/completions`
+    const url = `${base}/${store.provider}/v1/chat/completions`
 
     const res = await fetch(url, {
       method: 'POST',
@@ -181,12 +175,13 @@ const isLastStreaming = computed(() =>
         <span class="chat-title">AI Chat</span>
 
         <div class="header-controls">
-          <!-- engine dropdown -->
+          <!-- provider dropdown -->
           <select
             v-model="store.provider"
             class="engine-select"
             :disabled="availableProviders.length <= 1"
           >
+            <option v-if="availableProviders.length === 0" value="">No providers</option>
             <option v-for="p in availableProviders" :key="p.id" :value="p.id">{{ p.label }}</option>
           </select>
 

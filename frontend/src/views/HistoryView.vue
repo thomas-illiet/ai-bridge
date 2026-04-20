@@ -84,11 +84,11 @@ onMounted(() => {
         <span class="stat-value">{{ fmtNum(stats.total) }}</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Input</span>
+        <span class="stat-label">Input Tokens</span>
         <span class="stat-value">{{ fmtNum(stats.totalInput) }}</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Output</span>
+        <span class="stat-label">Output Tokens</span>
         <span class="stat-value">{{ fmtNum(stats.totalOutput) }}</span>
       </div>
       <div class="stat-card stat-card--model">
@@ -147,7 +147,7 @@ onMounted(() => {
         <template v-else>
           <tr v-for="row in rows" :key="row.id">
             <td class="col-center">
-              <span class="provider-badge" :style="{ background: providerColor(row.provider) + '22', color: providerColor(row.provider) }">
+              <span class="provider-badge" :style="{ background: providerColor(row.providerType) + '22', color: providerColor(row.providerType) }">
                 {{ row.provider }}
               </span>
             </td>

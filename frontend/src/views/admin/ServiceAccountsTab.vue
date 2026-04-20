@@ -15,7 +15,7 @@ const error           = ref<string | null>(null)
 
 const selectedAccount = ref<ServiceAccount | null>(null)
 const tokens          = ref<ClientToken[]>([])
-const showRevoked     = ref(false)
+const showInactive     = ref(false)
 const revokingId      = ref<string | null>(null)
 
 const sortBy     = ref('created_at')
@@ -61,7 +61,7 @@ async function loadAccounts() {
 async function loadTokens() {
   if (!selectedAccount.value) return
   await withTokensLoad(async () => {
-    const res = await listServiceTokens(selectedAccount.value!.id, showRevoked.value, tokSortBy.value, tokSortDir.value)
+    const res = await listServiceTokens(selectedAccount.value!.id, showInactive.value, tokSortBy.value, tokSortDir.value)
     tokens.value = res.data.tokens ?? []
   })
 }
@@ -69,7 +69,7 @@ async function loadTokens() {
 async function selectAccount(account: ServiceAccount) {
   selectedAccount.value = account
   tokens.value = []
-  showRevoked.value = false
+  showInactive.value = false
   await loadTokens()
 }
 
@@ -138,8 +138,8 @@ async function confirmDelete() {
   }
 }
 
-async function toggleShowRevoked() {
-  showRevoked.value = !showRevoked.value
+async function toggleShowInactive() {
+  showInactive.value = !showInactive.value
   await loadTokens()
 }
 
@@ -218,9 +218,9 @@ onMounted(loadAccounts)
         </div>
         <div class="panel-actions">
           <label class="toggle-label">
-            <input type="checkbox" :checked="showRevoked" @change="toggleShowRevoked" />
+            <input type="checkbox" :checked="showInactive" @change="toggleShowInactive" />
             <span class="toggle-switch" />
-            Show revoked
+            Show inactive
           </label>
           <button class="btn btn-sm btn-primary" @click="showCreateTokenModal = true; formError = null">
             + New Token

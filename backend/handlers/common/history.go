@@ -12,6 +12,7 @@ type InterceptionRow struct {
 	InitiatorID  string     `gorm:"column:initiator_id"  json:"initiatorId"`
 	Username     string     `gorm:"column:username"      json:"username"`
 	Provider     string     `gorm:"column:provider"      json:"provider"`
+	ProviderType string     `gorm:"column:provider_type" json:"providerType"`
 	Model        string     `gorm:"column:model"         json:"model"`
 	StartedAt    time.Time  `gorm:"column:started_at"    json:"startedAt"`
 	EndedAt      *time.Time `gorm:"column:ended_at"      json:"endedAt"`
@@ -26,7 +27,7 @@ type InterceptionDetail struct {
 
 const HistoryBaseSQL = `
 	SELECT
-		ai.id, ai.initiator_id, ai.provider, ai.model, ai.started_at, ai.ended_at,
+		ai.id, ai.initiator_id, ai.provider, ai.provider_type, ai.model, ai.started_at, ai.ended_at,
 		COALESCE(ru.username, ai.initiator_id) AS username,
 		COALESCE(SUM(atu.input_tokens),  0) AS input_tokens,
 		COALESCE(SUM(atu.output_tokens), 0) AS output_tokens
@@ -69,7 +70,7 @@ func HistoryQuery(whereSQL string, whereArgs []any, page, pageSize int, sortBy, 
 	}
 
 	dataSQL := HistoryBaseSQL + whereSQL +
-		` GROUP BY ai.id, ai.initiator_id, ai.provider, ai.model, ai.started_at, ai.ended_at, ru.username
+		` GROUP BY ai.id, ai.initiator_id, ai.provider, ai.provider_type, ai.model, ai.started_at, ai.ended_at, ru.username
 		 ORDER BY ` + col + ` ` + dir + ` LIMIT ? OFFSET ?`
 	dataArgs := append(append([]any{}, whereArgs...), pageSize, (page-1)*pageSize)
 

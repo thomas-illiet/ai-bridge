@@ -30,11 +30,16 @@ var _ provider.Provider = (*OllamaProvider)(nil)
 // NewOllamaProvider creates an Ollama provider pointing at baseURL.
 // key is optional — Ollama does not require authentication.
 func NewOllamaProvider(baseURL, key string) *OllamaProvider {
+	return NewNamedOllamaProvider("ollama", baseURL, key)
+}
+
+// NewNamedOllamaProvider creates an Ollama provider with a custom name and route prefix.
+func NewNamedOllamaProvider(name, baseURL, key string) *OllamaProvider {
 	baseURL = strings.TrimRight(baseURL, "/") + "/"
 	return &OllamaProvider{
 		baseURL: baseURL,
 		key:     key,
-		name:    "ollama",
+		name:    name,
 	}
 }
 

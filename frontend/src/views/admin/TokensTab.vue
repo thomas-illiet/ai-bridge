@@ -12,7 +12,7 @@ const total         = ref(0)
 const page          = ref(1)
 const pageSize      = ref(10)
 const search        = ref('')
-const showRevoked   = ref(false)
+const showInactive   = ref(false)
 const { loading, withLoad } = useMinLoad(300, true)
 const actioningId   = ref<string | null>(null)
 const sortBy        = ref('created_at')
@@ -35,11 +35,11 @@ watch(search, () => {
 })
 watch(page, load)
 watch(pageSize, () => { page.value = 1; load() })
-watch(showRevoked, () => { page.value = 1; load() })
+watch(showInactive, () => { page.value = 1; load() })
 
 async function load() {
   await withLoad(async () => {
-    const res = await adminListTokens(page.value, pageSize.value, search.value, showRevoked.value, sortBy.value, sortDir.value)
+    const res = await adminListTokens(page.value, pageSize.value, search.value, showInactive.value, sortBy.value, sortDir.value)
     tokens.value = res.data.tokens
     total.value  = res.data.total
   })
@@ -73,9 +73,9 @@ onMounted(load)
       <p class="sub">{{ total }} token{{ total !== 1 ? 's' : '' }} total.</p>
       <div class="toolbar-right">
         <label class="toggle-label">
-          <input type="checkbox" v-model="showRevoked" />
+          <input type="checkbox" v-model="showInactive" />
           <span class="toggle-switch" />
-          Show revoked
+          Show inactive
         </label>
         <input v-model="search" type="text" placeholder="Search by name or user…" class="search-input" />
       </div>
@@ -88,7 +88,7 @@ onMounted(load)
         </svg>
       </div>
       <p class="empty-title">No tokens found</p>
-      <p class="empty-sub">{{ search ? 'Try adjusting your search.' : showRevoked ? 'No tokens exist yet.' : 'No active tokens. Revoked tokens can be shown with the toggle above.' }}</p>
+      <p class="empty-sub">{{ search ? 'Try adjusting your search.' : showInactive ? 'No tokens exist yet.' : 'No active tokens. Inactive tokens (revoked or expired) can be shown with the toggle above.' }}</p>
     </div>
 
     <table v-else class="data-table">

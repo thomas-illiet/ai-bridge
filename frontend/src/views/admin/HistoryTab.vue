@@ -123,7 +123,7 @@ onMounted(async () => {
         <template v-else>
           <tr v-for="row in rows" :key="row.id">
             <td class="col-center">
-              <span class="prov-badge" :style="{ background: providerColor(row.provider) + '22', color: providerColor(row.provider) }">{{ row.provider }}</span>
+              <span class="prov-badge" :style="{ background: providerColor(row.providerType) + '22', color: providerColor(row.providerType) }">{{ row.provider }}</span>
             </td>
             <td class="col-center model-cell">{{ row.model }}</td>
             <td class="col-center muted">{{ formatDate(row.startedAt) }}</td>

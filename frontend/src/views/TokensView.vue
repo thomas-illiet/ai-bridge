@@ -11,11 +11,11 @@ import TokenCreatedModal from '@/views/tokens/TokenCreatedModal.vue'
 
 const store = useTokenStore()
 
-const showRevoked = ref(false)
+const showInactive = ref(false)
 const tokPage     = ref(1)
 const tokPageSize = ref(10)
 
-watch(showRevoked, (val) => {
+watch(showInactive, (val) => {
   tokPage.value = 1
   store.fetchTokens(val, sortBy.value, sortDir.value)
 })
@@ -67,7 +67,7 @@ function toggleSort(col: string) {
     sortDir.value = 'desc'
   }
   tokPage.value = 1
-  store.fetchTokens(showRevoked.value, sortBy.value, sortDir.value)
+  store.fetchTokens(showInactive.value, sortBy.value, sortDir.value)
 }
 
 const showCreateModal    = ref(false)
@@ -102,18 +102,21 @@ function daysUntilExpiry(token: ClientToken): number {
 <template>
   <div class="tokens-page">
     <div class="page-header">
-      <h1>Personal Access Tokens</h1>
+      <div>
+        <h1>Personal Access Tokens</h1>
+        <p class="subtitle">The door of your innovation.</p>
+      </div>
       <div class="header-actions">
         <label class="toggle-label">
-          <input type="checkbox" v-model="showRevoked" />
+          <input type="checkbox" v-model="showInactive" />
           <span class="toggle-switch" />
-          Show revoked
+          Show inactive
         </label>
         <button class="btn btn-primary" @click="showCreateModal = true">New Token</button>
       </div>
     </div>
 
-    <div v-if="!store.loading && !store.error" class="stat-grid">
+    <div v-if="!store.error && (store.tokens.length > 0 || !store.loading)" class="stat-grid">
       <div class="stat-card">
         <span class="stat-label">Active</span>
         <span class="stat-value">{{ kpis.active }}</span>
@@ -266,4 +269,5 @@ h1 { font-size: 1.75rem; font-weight: 700; }
 .badge-group { display: block; }
 /* badge border-radius override: square corners for status badges in this table */
 .badge { border-radius: 4px; }
+.subtitle { font-size: 0.85rem; color: #64748b; margin: 0.2rem 0 0; }
 </style>

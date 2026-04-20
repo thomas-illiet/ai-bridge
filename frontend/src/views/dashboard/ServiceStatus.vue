@@ -5,7 +5,7 @@ defineProps<{ status: StatusResponse | null; refreshing: boolean }>()
 
 const SERVICE_LABELS: Record<string, string> = {
   database: 'PostgreSQL',
-  oidc:     'OIDC / Keycloak',
+  oidc:     'OIDC Provider',
   openai:   'OpenAI',
   ollama:   'Ollama',
 }

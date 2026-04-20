@@ -7,12 +7,12 @@ export const useTokenStore = defineStore('tokens', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchTokens(includeRevoked = false, sortBy = 'created_at', sortDir = 'desc'): Promise<void> {
+  async function fetchTokens(includeInactive = false, sortBy = 'created_at', sortDir = 'desc'): Promise<void> {
     loading.value = true
     error.value = null
     try {
       await Promise.all([
-        listTokens(includeRevoked, sortBy, sortDir).then(res => { tokens.value = res.data.tokens }).catch(() => { error.value = 'Failed to load tokens' }),
+        listTokens(includeInactive, sortBy, sortDir).then(res => { tokens.value = res.data.tokens }).catch(() => { error.value = 'Failed to load tokens' }),
         new Promise<void>(r => setTimeout(r, 300)),
       ])
     } finally {

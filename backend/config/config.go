@@ -14,12 +14,9 @@ type Config struct {
 	OIDCClientID      string
 	OIDCJWKSUrl       string
 	AllowedOrigins string
-	DatabaseDSN       string
-	TokenSecret       string
-	OpenAIAPIKey      string
-	OllamaBaseURL     string
-	OllamaNumCtx      int
-	TrustedProxies    string
+	DatabaseDSN    string
+	TokenSecret    string
+	TrustedProxies string
 	SMTPHost              string
 	SMTPPort              int
 	SMTPUser              string
@@ -56,12 +53,9 @@ func Load() (*Config, error) {
 		OIDCClientID:    getEnv("OIDC_CLIENT_ID", "ai-bridge-frontend"),
 		OIDCJWKSUrl:     getEnv("OIDC_JWKS_URL", ""),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
-		DatabaseDSN:       getEnv("DATABASE_DSN", ""),
-		TokenSecret:       getEnv("TOKEN_SECRET", ""),
-		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
-		OllamaBaseURL:     getEnv("OLLAMA_BASE_URL", ""),
-		OllamaNumCtx:      getEnvInt("OLLAMA_NUM_CTX", 4096),
-		TrustedProxies:    getEnv("TRUSTED_PROXIES", "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"),
+		DatabaseDSN:    getEnv("DATABASE_DSN", ""),
+		TokenSecret:    getEnv("TOKEN_SECRET", ""),
+		TrustedProxies: getEnv("TRUSTED_PROXIES", "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"),
 		SMTPHost:          getEnv("SMTP_HOST", ""),
 		SMTPPort:          getEnvInt("SMTP_PORT", 587),
 		SMTPUser:          getEnv("SMTP_USER", ""),

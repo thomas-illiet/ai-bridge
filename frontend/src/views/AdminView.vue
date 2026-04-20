@@ -7,11 +7,12 @@ import TokensTab           from './admin/TokensTab.vue'
 import HistoryTab          from './admin/HistoryTab.vue'
 import RequestsTab         from './admin/RequestsTab.vue'
 import ServiceAccountsTab  from './admin/ServiceAccountsTab.vue'
+import ProvidersTab        from './admin/ProvidersTab.vue'
 import { adminListAccessRequests } from '@/services/api'
 
 const auth = useAuthStore()
 
-const activeTab   = ref<'requests' | 'users' | 'whitelist' | 'tokens' | 'service-accounts' | 'history'>('requests')
+const activeTab   = ref<'requests' | 'users' | 'whitelist' | 'tokens' | 'service-accounts' | 'history' | 'providers'>('requests')
 const pendingCount = ref(0)
 
 onMounted(async () => {
@@ -38,6 +39,7 @@ onMounted(async () => {
       <button v-if="auth.isAdmin" class="tab-btn" :class="{ active: activeTab === 'whitelist' }" @click="activeTab = 'whitelist'">IP Whitelist</button>
       <button class="tab-btn" :class="{ active: activeTab === 'tokens' }"           @click="activeTab = 'tokens'">Tokens</button>
       <button v-if="auth.isAdmin" class="tab-btn" :class="{ active: activeTab === 'service-accounts' }" @click="activeTab = 'service-accounts'">Service Accounts</button>
+      <button v-if="auth.isAdmin" class="tab-btn" :class="{ active: activeTab === 'providers' }" @click="activeTab = 'providers'">Providers</button>
       <button class="tab-btn" :class="{ active: activeTab === 'history' }"          @click="activeTab = 'history'">History</button>
     </div>
 
@@ -46,6 +48,7 @@ onMounted(async () => {
     <WhitelistTab v-if="activeTab === 'whitelist' && auth.isAdmin" />
     <TokensTab          v-if="activeTab === 'tokens'" />
     <ServiceAccountsTab v-if="activeTab === 'service-accounts' && auth.isAdmin" />
+    <ProvidersTab       v-if="activeTab === 'providers' && auth.isAdmin" />
     <HistoryTab         v-if="activeTab === 'history'" />
   </div>
 </template>

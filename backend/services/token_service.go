@@ -152,7 +152,7 @@ var allowedTokenSortColumns = map[string]string{
 
 const tokenStatusExpr = "CASE WHEN revoked_at IS NOT NULL THEN 'revoked' WHEN expires_at IS NOT NULL AND expires_at < NOW() THEN 'expired' ELSE 'active' END"
 
-func ListUserTokens(userID string, includeRevoked bool, sortBy, sortDir string) ([]models.ClientToken, error) {
+func ListUserTokens(userID string, includeInactive bool, sortBy, sortDir string) ([]models.ClientToken, error) {
 	if sortDir != "asc" {
 		sortDir = "desc"
 	}
@@ -170,10 +170,10 @@ func ListUserTokens(userID string, includeRevoked bool, sortBy, sortDir string) 
 
 	var tokens []models.ClientToken
 	q := database.DB.Where("user_id = ?", userID)
-	if !includeRevoked {
-		q = q.Where("revoked_at IS NULL")
+	if !includeInactive {
+		q = q.Where("revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())")
 	}
-	if err := q.Order(gorm.Expr(orderExpr)).Find(&tokens).Error; err != nil {
+	if err := q.Order(orderExpr).Find(&tokens).Error; err != nil {
 		return nil, err
 	}
 	return tokens, nil

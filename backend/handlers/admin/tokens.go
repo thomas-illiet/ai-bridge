@@ -41,7 +41,7 @@ func ListTokens(c *gin.Context) {
 	}
 	offset := (page - 1) * pageSize
 
-	includeRevoked := c.Query("include_revoked") == "true"
+	includeInactive := c.Query("include_inactive") == "true"
 	sortBy := c.DefaultQuery("sort_by", "created_at")
 	sortDir := c.DefaultQuery("sort_dir", "desc")
 	if sortDir != "asc" {
@@ -66,8 +66,8 @@ func ListTokens(c *gin.Context) {
 		q = q.Where("registered_users.role != ?", models.RoleService)
 	}
 
-	if !includeRevoked {
-		q = q.Where("client_tokens.revoked_at IS NULL")
+	if !includeInactive {
+		q = q.Where("client_tokens.revoked_at IS NULL AND (client_tokens.expires_at IS NULL OR client_tokens.expires_at > NOW())")
 	}
 
 	if search != "" {

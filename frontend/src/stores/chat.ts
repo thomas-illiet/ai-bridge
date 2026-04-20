@@ -12,7 +12,7 @@ export function newId() { return String(++_id) }
 
 export const useChatStore = defineStore('chat', () => {
   const messages  = ref<ChatMessage[]>([])
-  const provider  = ref<'openai' | 'ollama'>('openai')
+  const provider  = ref<string>('')
   const model     = ref('')
   const streaming = ref(false)
 

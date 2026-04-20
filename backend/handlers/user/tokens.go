@@ -115,11 +115,11 @@ func ListTokens(c *gin.Context) {
 		return
 	}
 
-	includeRevoked := c.Query("include_revoked") == "true"
+	includeInactive := c.Query("include_inactive") == "true"
 	sortBy := c.DefaultQuery("sort_by", "created_at")
 	sortDir := c.DefaultQuery("sort_dir", "desc")
 
-	tokens, err := services.ListUserTokens(user.ID, includeRevoked, sortBy, sortDir)
+	tokens, err := services.ListUserTokens(user.ID, includeInactive, sortBy, sortDir)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list tokens"})
 		return

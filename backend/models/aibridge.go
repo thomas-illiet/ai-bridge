@@ -5,8 +5,9 @@ import "time"
 type AibridgeInterception struct {
 	ID          string     `gorm:"primaryKey" json:"id"`
 	InitiatorID string     `gorm:"not null;index" json:"initiatorId"`
-	Provider    string     `gorm:"not null" json:"provider"`
-	Model       string     `gorm:"not null" json:"model"`
+	Provider     string     `gorm:"not null" json:"provider"`
+	ProviderType string     `gorm:"not null;default:''" json:"providerType"`
+	Model        string     `gorm:"not null" json:"model"`
 	StartedAt   time.Time  `gorm:"not null" json:"startedAt"`
 	EndedAt     *time.Time `json:"endedAt"`
 	Metadata    string     `json:"metadata"`

@@ -42,13 +42,15 @@ func (r *GORMRecorder) RecordInterception(_ context.Context, req *aibrecorder.In
 	if startedAt.IsZero() {
 		startedAt = time.Now().UTC()
 	}
+
 	row := models.AibridgeInterception{
-		ID:          req.ID,
-		InitiatorID: req.InitiatorID,
-		Provider:    req.Provider,
-		Model:       req.Model,
-		StartedAt:   startedAt,
-		Metadata:    marshalMeta(req.Metadata),
+		ID:           req.ID,
+		InitiatorID:  req.InitiatorID,
+		Provider:     req.ProviderName,
+		ProviderType: req.Provider,
+		Model:        req.Model,
+		StartedAt:    startedAt,
+		Metadata:     marshalMeta(req.Metadata),
 	}
 	return database.DB.Create(&row).Error
 }

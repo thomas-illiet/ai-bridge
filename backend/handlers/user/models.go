@@ -7,45 +7,58 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/thomas-illiet/ai-bridge/config"
+	"github.com/thomas-illiet/ai-bridge/database"
+	"github.com/thomas-illiet/ai-bridge/models"
+	"gorm.io/gorm"
 )
 
-// GetModels returns the list of available models for the requested provider (openai or ollama).
-func GetModels(cfg *config.Config) gin.HandlerFunc {
+// GetModels returns the list of available models for the requested provider name.
+func GetModels() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		provider := c.Query("provider")
-		switch provider {
-		case "openai":
-			if cfg.OpenAIAPIKey == "" {
-				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "OpenAI not configured"})
+		providerName := c.Query("provider")
+		if providerName == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider query parameter is required"})
+			return
+		}
+
+		var p models.AIProvider
+		if err := database.DB.Where("name = ? AND enabled = true", providerName).First(&p).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "provider not found or disabled"})
 				return
 			}
-			models, err := fetchOpenAIModels(cfg.OpenAIAPIKey)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		switch p.Type {
+		case models.ProviderTypeOpenAI:
+			modelList, err := fetchOpenAIModels(p.APIKey, p.BaseURL)
 			if err != nil {
 				c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusOK, gin.H{"models": models})
-		case "ollama":
-			if cfg.OllamaBaseURL == "" {
-				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Ollama not configured"})
-				return
-			}
-			models, err := fetchOllamaModels(cfg.OllamaBaseURL)
+			c.JSON(http.StatusOK, gin.H{"models": modelList})
+		case models.ProviderTypeOllama:
+			modelList, err := fetchOllamaModels(p.BaseURL)
 			if err != nil {
 				c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusOK, gin.H{"models": models})
+			c.JSON(http.StatusOK, gin.H{"models": modelList})
 		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "provider must be 'openai' or 'ollama'"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider type"})
 		}
 	}
 }
 
-// fetchOpenAIModels queries the OpenAI API and returns the list of model IDs.
-func fetchOpenAIModels(apiKey string) ([]string, error) {
-	req, _ := http.NewRequest("GET", "https://api.openai.com/v1/models", nil)
+// fetchOpenAIModels queries an OpenAI-compatible API and returns the list of model IDs.
+func fetchOpenAIModels(apiKey, baseURL string) ([]string, error) {
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1/"
+	}
+	url := strings.TrimRight(baseURL, "/") + "/models"
+	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	resp, err := http.DefaultClient.Do(req)

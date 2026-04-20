@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/thomas-illiet/ai-bridge/config"
 	"github.com/thomas-illiet/ai-bridge/database"
+	"github.com/thomas-illiet/ai-bridge/models"
 )
 
 type serviceStatus struct {
@@ -34,8 +36,12 @@ func GetStatus(cfg *config.Config) gin.HandlerFunc {
 		services := []serviceStatus{
 			checkDatabase(ctx),
 			checkOIDC(client, cfg),
-			checkOpenAI(client, cfg),
-			checkOllama(client, cfg),
+		}
+
+		var providers []models.AIProvider
+		database.DB.Where("enabled = true").Find(&providers)
+		for i := range providers {
+			services = append(services, checkProvider(client, &providers[i]))
 		}
 
 		overall := "healthy"
@@ -52,7 +58,6 @@ func GetStatus(cfg *config.Config) gin.HandlerFunc {
 
 func ms(d time.Duration) *int64 { v := d.Milliseconds(); return &v }
 
-// checkDatabase pings the database and returns its service status.
 func checkDatabase(ctx context.Context) serviceStatus {
 	db, err := database.DB.DB()
 	if err != nil {
@@ -65,8 +70,6 @@ func checkDatabase(ctx context.Context) serviceStatus {
 	return serviceStatus{Name: "database", Status: "up", LatencyMs: ms(time.Since(start))}
 }
 
-// checkOIDC probes the OIDC discovery endpoint and returns its service status.
-// Uses OIDCInternalURL when set so container-internal routing works correctly.
 func checkOIDC(client *http.Client, cfg *config.Config) serviceStatus {
 	url := cfg.OIDCHealthURL() + "/.well-known/openid-configuration"
 	start := time.Now()
@@ -82,22 +85,34 @@ func checkOIDC(client *http.Client, cfg *config.Config) serviceStatus {
 	return serviceStatus{Name: "oidc", Status: "up", LatencyMs: latency}
 }
 
-// checkOpenAI probes the OpenAI models endpoint, returns count of available models.
-func checkOpenAI(client *http.Client, cfg *config.Config) serviceStatus {
-	if cfg.OpenAIAPIKey == "" {
-		return serviceStatus{Name: "openai", Status: "disabled"}
+func checkProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+	switch p.Type {
+	case models.ProviderTypeOpenAI:
+		return checkOpenAIProvider(client, p)
+	case models.ProviderTypeOllama:
+		return checkOllamaProvider(client, p)
+	default:
+		return serviceStatus{Name: p.Name, Status: "disabled", Message: "unknown type"}
 	}
-	req, _ := http.NewRequest(http.MethodGet, "https://api.openai.com/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer "+cfg.OpenAIAPIKey)
+}
+
+func checkOpenAIProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+	baseURL := p.BaseURL
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1/"
+	}
+	url := strings.TrimRight(baseURL, "/") + "/models"
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", "Bearer "+p.APIKey)
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		return serviceStatus{Name: "openai", Status: "down", Message: err.Error()}
+		return serviceStatus{Name: p.Name, Status: "down", Message: err.Error()}
 	}
 	defer resp.Body.Close()
 	latency := ms(time.Since(start))
 	if resp.StatusCode != http.StatusOK {
-		return serviceStatus{Name: "openai", Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode), LatencyMs: latency}
+		return serviceStatus{Name: p.Name, Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode), LatencyMs: latency}
 	}
 	var body struct {
 		Data []json.RawMessage `json:"data"`
@@ -106,24 +121,20 @@ func checkOpenAI(client *http.Client, cfg *config.Config) serviceStatus {
 	if json.NewDecoder(resp.Body).Decode(&body) == nil {
 		count = len(body.Data)
 	}
-	return serviceStatus{Name: "openai", Status: "up", LatencyMs: latency, ModelCount: &count}
+	return serviceStatus{Name: p.Name, Status: "up", LatencyMs: latency, ModelCount: &count}
 }
 
-// checkOllama probes the Ollama tags endpoint and returns count of local models.
-func checkOllama(client *http.Client, cfg *config.Config) serviceStatus {
-	if cfg.OllamaBaseURL == "" {
-		return serviceStatus{Name: "ollama", Status: "disabled"}
-	}
-	url := fmt.Sprintf("%s/api/tags", cfg.OllamaBaseURL)
+func checkOllamaProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+	url := strings.TrimRight(p.BaseURL, "/") + "/api/tags"
 	start := time.Now()
 	resp, err := client.Get(url)
 	if err != nil {
-		return serviceStatus{Name: "ollama", Status: "down", Message: err.Error()}
+		return serviceStatus{Name: p.Name, Status: "down", Message: err.Error()}
 	}
 	defer resp.Body.Close()
 	latency := ms(time.Since(start))
 	if resp.StatusCode != http.StatusOK {
-		return serviceStatus{Name: "ollama", Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode), LatencyMs: latency}
+		return serviceStatus{Name: p.Name, Status: "down", Message: fmt.Sprintf("HTTP %d", resp.StatusCode), LatencyMs: latency}
 	}
 	var body struct {
 		Models []json.RawMessage `json:"models"`
@@ -132,5 +143,5 @@ func checkOllama(client *http.Client, cfg *config.Config) serviceStatus {
 	if json.NewDecoder(resp.Body).Decode(&body) == nil {
 		count = len(body.Models)
 	}
-	return serviceStatus{Name: "ollama", Status: "up", LatencyMs: latency, ModelCount: &count}
+	return serviceStatus{Name: p.Name, Status: "up", LatencyMs: latency, ModelCount: &count}
 }

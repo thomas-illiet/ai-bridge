@@ -2,9 +2,8 @@
 import { ref } from 'vue'
 
 defineProps<{
-  activeUrl:  string
-  ollamaUrl:  string
-  provider:   'openai' | 'ollama'
+  activeUrl: string
+  provider:  'openai' | 'ollama'
 }>()
 
 const copied = ref<string | null>(null)
@@ -35,10 +34,10 @@ function copy(text: string, key: string) {
       <li>Click <em>Save</em> and refresh the model list.</li>
     </ol>
     <div v-if="provider === 'ollama'" class="tip">
-      <strong>Ollama:</strong> Open WebUI also has native Ollama support — using the AI Bridge Ollama endpoint lets you apply IP restrictions and usage tracking on top.
+      <strong>Ollama:</strong> Open WebUI also has native Ollama support — using the AI Bridge endpoint applies IP restrictions and usage tracking on top.
     </div>
     <div v-else class="tip">
-      <strong>Tip:</strong> Add a second connection with <code>{{ ollamaUrl }}</code> to have both OpenAI and Ollama models available simultaneously.
+      <strong>Tip:</strong> Add additional connections in Open WebUI to expose models from other AI Bridge providers simultaneously.
     </div>
   </div>
 </template>
