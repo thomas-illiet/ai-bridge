@@ -101,7 +101,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "user registration failed"})
 				return
 			}
-			c.Set(ctxUserKey, &models.User{
+			c.Set(ctxUserKey, &models.AuthUser{
 				ID:                registered.ID,
 				Username:          registered.Username,
 				Email:             registered.Email,
@@ -130,7 +130,7 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 				if err == nil && registered != nil {
 					role = registered.Role
 				}
-				c.Set(ctxUserKey, &models.User{
+				c.Set(ctxUserKey, &models.AuthUser{
 					ID:                record.UserID,
 					PreferredUsername: record.UserID,
 					Roles:             []string{role},
@@ -144,9 +144,9 @@ func JWTAuth(cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
-func GetUser(c *gin.Context) *models.User {
+func GetUser(c *gin.Context) *models.AuthUser {
 	u, _ := c.Get(ctxUserKey)
-	user, _ := u.(*models.User)
+	user, _ := u.(*models.AuthUser)
 	return user
 }
 

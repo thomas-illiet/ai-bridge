@@ -36,7 +36,7 @@ type UpdateProviderRequest struct {
 
 // BuildProviders loads all enabled providers from DB and converts them to aibridge.Provider.
 func BuildProviders() ([]aibridge.Provider, error) {
-	var dbProviders []models.AIProvider
+	var dbProviders []models.Provider
 	if err := database.DB.Where("enabled = true").Find(&dbProviders).Error; err != nil {
 		return nil, fmt.Errorf("load providers: %w", err)
 	}
@@ -53,7 +53,7 @@ func BuildProviders() ([]aibridge.Provider, error) {
 }
 
 // ToAIBridgeProvider converts a DB provider row to the aibridge.Provider interface.
-func ToAIBridgeProvider(p *models.AIProvider) (aibridge.Provider, error) {
+func ToAIBridgeProvider(p *models.Provider) (aibridge.Provider, error) {
 	switch p.Type {
 	case models.ProviderTypeOpenAI:
 		return aibpkg.NewNamedOpenAIProvider(p.Name, p.APIKey, p.BaseURL), nil
@@ -82,7 +82,7 @@ func validateProviderName(name string) error {
 	return nil
 }
 
-func CreateProvider(req CreateProviderRequest) (*models.AIProvider, error) {
+func CreateProvider(req CreateProviderRequest) (*models.Provider, error) {
 	if err := validateProviderName(req.Name); err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func CreateProvider(req CreateProviderRequest) (*models.AIProvider, error) {
 		req.Config = models.ProviderConfig{}
 	}
 
-	p := &models.AIProvider{
+	p := &models.Provider{
 		Name:        req.Name,
 		DisplayName: req.DisplayName,
 		Type:        req.Type,
@@ -113,8 +113,8 @@ func CreateProvider(req CreateProviderRequest) (*models.AIProvider, error) {
 	return p, nil
 }
 
-func UpdateProvider(id uuid.UUID, req UpdateProviderRequest) (*models.AIProvider, error) {
-	var p models.AIProvider
+func UpdateProvider(id uuid.UUID, req UpdateProviderRequest) (*models.Provider, error) {
+	var p models.Provider
 	if err := database.DB.First(&p, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func UpdateProvider(id uuid.UUID, req UpdateProviderRequest) (*models.AIProvider
 }
 
 func DeleteProvider(id uuid.UUID) error {
-	result := database.DB.Unscoped().Delete(&models.AIProvider{}, "id = ?", id)
+	result := database.DB.Unscoped().Delete(&models.Provider{}, "id = ?", id)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -159,16 +159,16 @@ func DeleteProvider(id uuid.UUID) error {
 	return nil
 }
 
-func ListProviders() ([]models.AIProvider, error) {
-	var providers []models.AIProvider
+func ListProviders() ([]models.Provider, error) {
+	var providers []models.Provider
 	if err := database.DB.Order("created_at desc").Find(&providers).Error; err != nil {
 		return nil, err
 	}
 	return providers, nil
 }
 
-func GetProvider(id uuid.UUID) (*models.AIProvider, error) {
-	var p models.AIProvider
+func GetProvider(id uuid.UUID) (*models.Provider, error) {
+	var p models.Provider
 	if err := database.DB.First(&p, "id = ?", id).Error; err != nil {
 		return nil, err
 	}

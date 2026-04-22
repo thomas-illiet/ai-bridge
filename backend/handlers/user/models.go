@@ -21,7 +21,7 @@ func GetModels() gin.HandlerFunc {
 			return
 		}
 
-		var p models.AIProvider
+		var p models.Provider
 		if err := database.DB.Where("name = ? AND enabled = true", providerName).First(&p).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				c.JSON(http.StatusNotFound, gin.H{"error": "provider not found or disabled"})

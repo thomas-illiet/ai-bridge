@@ -100,7 +100,7 @@ func ApproveRequest(cfg *config.Config) gin.HandlerFunc {
 		database.DB.Save(&req)
 
 		updates := map[string]any{"role": body.Role, "role_expires_at": expiresAt}
-		database.DB.Model(&models.RegisteredUser{}).Where("id = ?", req.UserID).Updates(updates)
+		database.DB.Model(&models.User{}).Where("id = ?", req.UserID).Updates(updates)
 
 		dbUser, _ := services.GetUserByID(req.UserID)
 		if dbUser != nil {

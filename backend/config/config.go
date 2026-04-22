@@ -25,6 +25,8 @@ type Config struct {
 	SMTPTo                string // comma-separated admin emails
 	RoleExpiryIntervalSec int    // how often to check for expired roles (seconds)
 	AppURL                string // public base URL used in email links
+	RedisURL              string // e.g. "redis://redis:6379/0"
+	BridgeServerPort      string // default "8586", bridge service only
 }
 
 func getEnv(key, fallback string) string {
@@ -64,6 +66,8 @@ func Load() (*Config, error) {
 		SMTPTo:                getEnv("SMTP_TO", ""),
 		RoleExpiryIntervalSec: getEnvInt("ROLE_EXPIRY_INTERVAL_SEC", 60),
 		AppURL:                getEnv("APP_URL", "http://localhost:5173"),
+		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		BridgeServerPort:      getEnv("BRIDGE_SERVER_PORT", "8586"),
 	}
 
 	if cfg.OIDCIssuerURL == "" {

@@ -35,6 +35,17 @@ services:
       retries: 10
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -50,10 +61,10 @@ services:
       - "1025:1025"  # SMTP
     restart: unless-stopped
 
-  backend:
+  api:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     ports:
       - "8585:8585"
     environment:
@@ -62,11 +73,10 @@ services:
       OIDC_INTERNAL_URL: http://keycloak:8180/realms/ai-bridge
       OIDC_CLIENT_ID: ai-bridge-frontend
       OIDC_JWKS_URL: http://keycloak:8180/realms/ai-bridge/protocol/openid-connect/certs
-      ALLOWED_ORIGINS: http://localhost:5173
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:80"
       DATABASE_DSN: "host=postgres user=aibridge password=aibridge dbname=aibridge port=5432 sslmode=disable TimeZone=UTC"
       TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
-      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      OLLAMA_BASE_URL: "http://ollama:11434"
+      REDIS_URL: "redis://redis:6379/0"
       SMTP_HOST: maildev
       SMTP_PORT: "1025"
       SMTP_FROM: "aibridge@localhost"
@@ -77,8 +87,41 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8585/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  bridge:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.bridge
+    ports:
+      - "8586:8586"
+    environment:
+      BRIDGE_SERVER_PORT: "8586"
+      OIDC_ISSUER_URL: http://localhost:8180/realms/ai-bridge
+      OIDC_INTERNAL_URL: http://keycloak:8180/realms/ai-bridge
+      OIDC_CLIENT_ID: ai-bridge-frontend
+      OIDC_JWKS_URL: http://keycloak:8180/realms/ai-bridge/protocol/openid-connect/certs
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:80"
+      DATABASE_DSN: "host=postgres user=aibridge password=aibridge dbname=aibridge port=5432 sslmode=disable TimeZone=UTC"
+      TOKEN_SECRET: "change-me-to-a-strong-secret-of-at-least-32-chars!!"
+      REDIS_URL: "redis://redis:6379/0"
+      TRUSTED_PROXIES: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8586/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,8 +133,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:80"
+    volumes:
+      - ./frontend/config.json:/usr/share/nginx/html/config.json:ro
     depends_on:
-      backend:
+      api:
+        condition: service_healthy
+      bridge:
         condition: service_healthy
     restart: unless-stopped
 

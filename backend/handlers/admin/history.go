@@ -62,7 +62,7 @@ func GetHistoryDetail(c *gin.Context) {
 	}
 
 	var prompts []string
-	database.DB.Model(&models.AibridgeUserPrompt{}).
+	database.DB.Model(&models.UserPrompt{}).
 		Where("interception_id = ?", id).
 		Order("created_at ASC").
 		Pluck("prompt", &prompts)

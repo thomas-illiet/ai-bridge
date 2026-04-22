@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type AibridgeInterception struct {
+type Interception struct {
 	ID          string     `gorm:"primaryKey" json:"id"`
 	InitiatorID string     `gorm:"not null;index" json:"initiatorId"`
 	Provider     string     `gorm:"not null" json:"provider"`
@@ -13,7 +13,7 @@ type AibridgeInterception struct {
 	Metadata    string     `json:"metadata"`
 }
 
-type AibridgeTokenUsage struct {
+type TokenUsage struct {
 	ID                    string    `gorm:"primaryKey" json:"id"`
 	InterceptionID        string    `gorm:"not null;index" json:"interceptionId"`
 	ProviderResponseID    string    `gorm:"not null" json:"providerResponseId"`
@@ -25,7 +25,7 @@ type AibridgeTokenUsage struct {
 	CreatedAt             time.Time `gorm:"not null" json:"createdAt"`
 }
 
-type AibridgeUserPrompt struct {
+type UserPrompt struct {
 	ID                 string    `gorm:"primaryKey" json:"id"`
 	InterceptionID     string    `gorm:"not null;index" json:"interceptionId"`
 	ProviderResponseID string    `gorm:"not null" json:"providerResponseId"`
@@ -34,7 +34,7 @@ type AibridgeUserPrompt struct {
 	CreatedAt          time.Time `gorm:"not null" json:"createdAt"`
 }
 
-type AibridgeToolUsage struct {
+type ToolUsage struct {
 	ID                 string     `gorm:"primaryKey" json:"id"`
 	InterceptionID     string     `gorm:"not null;index" json:"interceptionId"`
 	ProviderResponseID string     `gorm:"not null" json:"providerResponseId"`
@@ -47,7 +47,7 @@ type AibridgeToolUsage struct {
 	CreatedAt          time.Time  `gorm:"not null" json:"createdAt"`
 }
 
-type AibridgeModelThought struct {
+type ModelThought struct {
 	ID             string    `gorm:"primaryKey" json:"id"`
 	InterceptionID string    `gorm:"not null;index" json:"interceptionId"`
 	Content        string    `gorm:"not null" json:"content"`

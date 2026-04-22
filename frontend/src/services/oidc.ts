@@ -1,47 +1,56 @@
 import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts'
+import { getConfig } from './config'
 
-const manager = new UserManager({
-  authority: import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:8180/realms/ai-bridge',
-  client_id: import.meta.env.VITE_OIDC_CLIENT_ID ?? 'ai-bridge-frontend',
-  redirect_uri: import.meta.env.VITE_OIDC_REDIRECT_URI ?? window.location.origin,
-  post_logout_redirect_uri: window.location.origin,
-  response_type: 'code',
-  scope: 'openid profile email',
-  userStore: new WebStorageStateStore({ store: window.sessionStorage }),
-})
+let _manager: UserManager | null = null
+
+function getManager(): UserManager {
+  if (!_manager) {
+    const cfg = getConfig()
+    _manager = new UserManager({
+      authority: cfg.oidcAuthority,
+      client_id: cfg.oidcClientId,
+      redirect_uri: cfg.oidcRedirectUri || window.location.origin,
+      post_logout_redirect_uri: window.location.origin,
+      response_type: 'code',
+      scope: 'openid profile email',
+      userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+    })
+  }
+  return _manager
+}
 
 let _user: User | null = null
 
 export async function initOidc(): Promise<boolean> {
   if (window.location.search.includes('code=') || window.location.search.includes('error=')) {
     try {
-      _user = await manager.signinRedirectCallback()
+      _user = await getManager().signinRedirectCallback()
       window.history.replaceState({}, '', window.location.pathname)
     } catch {
       window.history.replaceState({}, '', window.location.pathname)
     }
   } else {
-    _user = await manager.getUser()
+    _user = await getManager().getUser()
   }
 
-  manager.events.addUserLoaded((user) => { _user = user })
-  manager.events.addUserUnloaded(() => { _user = null })
+  getManager().events.addUserLoaded((user) => { _user = user })
+  getManager().events.addUserUnloaded(() => { _user = null })
 
   return !!_user && !_user.expired
 }
 
 export function login() {
-  return manager.signinRedirect()
+  return getManager().signinRedirect()
 }
 
 export function logout() {
-  return manager.signoutRedirect()
+  return getManager().signoutRedirect()
 }
 
 export async function getValidToken(): Promise<string | undefined> {
   if (!_user || _user.expired) {
     try {
-      _user = await manager.signinSilent()
+      _user = await getManager().signinSilent()
     } catch {
       login()
       return undefined

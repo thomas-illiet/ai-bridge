@@ -16,7 +16,7 @@ type providerInfo struct {
 
 // ListAvailableProviders returns the name and type of all enabled providers.
 func ListAvailableProviders(c *gin.Context) {
-	var dbProviders []models.AIProvider
+	var dbProviders []models.Provider
 	if err := database.DB.Where("enabled = true").Order("name asc").Find(&dbProviders).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

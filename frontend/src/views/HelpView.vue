@@ -2,12 +2,14 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { getAvailableProviders, getModels } from '@/services/api'
 import type { ProviderInfo } from '@/services/api'
+import { getConfig } from '@/services/config'
 import EndpointBanner from '@/views/help/EndpointBanner.vue'
 import TabOpenWebUI from '@/views/help/TabOpenWebUI.vue'
 import TabOpenCode from '@/views/help/TabOpenCode.vue'
 import TabN8n from '@/views/help/TabN8n.vue'
 import TabPython from '@/views/help/TabPython.vue'
 import TabCurl from '@/views/help/TabCurl.vue'
+import TabClaude from '@/views/help/TabClaude.vue'
 
 const providers      = ref<ProviderInfo[]>([])
 const loading        = ref(true)
@@ -52,19 +54,28 @@ onMounted(async () => {
   if (selectedProvider.value) loadModels()
 })
 
-const baseURL      = computed(() => window.location.origin)
+const baseURL      = computed(() => getConfig().apiBaseUrl)
 const activeURL    = computed(() => selectedProvider.value ? `${baseURL.value}/${selectedProvider.value.name}/v1` : '')
 const activeModel  = computed(() => selectedModel.value || defaultModels[selectedProvider.value?.type ?? 'openai'])
 const providerType = computed(() => selectedProvider.value?.type ?? 'openai')
 
-const activeTab = ref<'openwebui' | 'opencode' | 'n8n' | 'python' | 'curl'>('openwebui')
-const tabs = [
-  { id: 'openwebui', label: 'Open WebUI' },
-  { id: 'opencode',  label: 'OpenCode' },
-  { id: 'n8n',       label: 'n8N' },
-  { id: 'python',    label: 'Python' },
-  { id: 'curl',      label: 'cURL' },
-] as const
+const activeTab = ref<'openwebui' | 'opencode' | 'n8n' | 'python' | 'curl' | 'claude'>('openwebui')
+
+const tabs = computed(() =>
+  providerType.value === 'anthropic'
+    ? [{ id: 'claude' as const, label: 'Claude' }]
+    : [
+        { id: 'openwebui' as const, label: 'Open WebUI' },
+        { id: 'opencode'  as const, label: 'OpenCode' },
+        { id: 'n8n'       as const, label: 'n8N' },
+        { id: 'python'    as const, label: 'Python' },
+        { id: 'curl'      as const, label: 'cURL' },
+      ]
+)
+
+watch(providerType, (type) => {
+  activeTab.value = type === 'anthropic' ? 'claude' : 'openwebui'
+})
 </script>
 
 <template>
@@ -137,6 +148,7 @@ const tabs = [
         >{{ tab.label }}</button>
       </div>
 
+      <TabClaude    v-if="activeTab === 'claude'"     :active-url="activeURL" :active-model="activeModel" />
       <TabOpenWebUI v-if="activeTab === 'openwebui'" :active-url="activeURL" :provider="providerType" />
       <TabOpenCode  v-if="activeTab === 'opencode'"  :active-url="activeURL" :active-model="activeModel" :provider="providerType" />
       <TabN8n       v-if="activeTab === 'n8n'"       :active-url="activeURL" :active-model="activeModel" :provider="providerType" />

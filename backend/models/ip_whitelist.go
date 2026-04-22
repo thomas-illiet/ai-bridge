@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type IPWhitelistEntry struct {
+type IPAllowlist struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	CIDR        string    `gorm:"not null;uniqueIndex" json:"cidr"`
 	Description string    `json:"description"`

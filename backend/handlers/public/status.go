@@ -38,7 +38,7 @@ func GetStatus(cfg *config.Config) gin.HandlerFunc {
 			checkOIDC(client, cfg),
 		}
 
-		var providers []models.AIProvider
+		var providers []models.Provider
 		database.DB.Where("enabled = true").Find(&providers)
 		for i := range providers {
 			services = append(services, checkProvider(client, &providers[i]))
@@ -85,7 +85,7 @@ func checkOIDC(client *http.Client, cfg *config.Config) serviceStatus {
 	return serviceStatus{Name: "oidc", Status: "up", LatencyMs: latency}
 }
 
-func checkProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+func checkProvider(client *http.Client, p *models.Provider) serviceStatus {
 	switch p.Type {
 	case models.ProviderTypeOpenAI:
 		return checkOpenAIProvider(client, p)
@@ -96,7 +96,7 @@ func checkProvider(client *http.Client, p *models.AIProvider) serviceStatus {
 	}
 }
 
-func checkOpenAIProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+func checkOpenAIProvider(client *http.Client, p *models.Provider) serviceStatus {
 	baseURL := p.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1/"
@@ -124,7 +124,7 @@ func checkOpenAIProvider(client *http.Client, p *models.AIProvider) serviceStatu
 	return serviceStatus{Name: p.Name, Status: "up", LatencyMs: latency, ModelCount: &count}
 }
 
-func checkOllamaProvider(client *http.Client, p *models.AIProvider) serviceStatus {
+func checkOllamaProvider(client *http.Client, p *models.Provider) serviceStatus {
 	url := strings.TrimRight(p.BaseURL, "/") + "/api/tags"
 	start := time.Now()
 	resp, err := client.Get(url)

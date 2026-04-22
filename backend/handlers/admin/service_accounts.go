@@ -31,13 +31,13 @@ func ListServiceAccounts(c *gin.Context) {
 		sortDir = "desc"
 	}
 
-	var accounts []models.RegisteredUser
+	var accounts []models.User
 	if err := database.DB.Where("role = ?", models.RoleService).Order(col + " " + sortDir).Find(&accounts).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if accounts == nil {
-		accounts = []models.RegisteredUser{}
+		accounts = []models.User{}
 	}
 	c.JSON(http.StatusOK, gin.H{"serviceAccounts": accounts})
 }
@@ -79,7 +79,7 @@ func ListServiceTokens(c *gin.Context) {
 	id := c.Param("id")
 
 	var count int64
-	database.DB.Model(&models.RegisteredUser{}).Where("id = ? AND role = ?", id, models.RoleService).Count(&count)
+	database.DB.Model(&models.User{}).Where("id = ? AND role = ?", id, models.RoleService).Count(&count)
 	if count == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "service account not found"})
 		return
@@ -94,7 +94,7 @@ func ListServiceTokens(c *gin.Context) {
 		return
 	}
 	if tokens == nil {
-		tokens = []models.ClientToken{}
+		tokens = []models.APIToken{}
 	}
 	c.JSON(http.StatusOK, gin.H{"tokens": tokens})
 }
@@ -104,7 +104,7 @@ func CreateServiceToken(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 
-		var account models.RegisteredUser
+		var account models.User
 		if err := database.DB.Where("id = ? AND role = ?", id, models.RoleService).First(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "service account not found"})

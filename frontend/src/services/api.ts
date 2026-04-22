@@ -1,12 +1,13 @@
 import axios from 'axios'
 import { getValidToken } from './oidc'
+import { getConfig } from './config'
 
 const api = axios.create({
-  baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 })
 
 api.interceptors.request.use(async (config) => {
+  config.baseURL = `${getConfig().apiBaseUrl}/api/v1`
   const token = await getValidToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -77,7 +78,7 @@ export interface StatusResponse {
   services: ServiceStatus[]
 }
 
-export const getStatus = () => axios.get<StatusResponse>('/api/status')
+export const getStatus = () => axios.get<StatusResponse>(`${getConfig().apiBaseUrl}/api/status`)
 
 export const listTokens = (includeInactive = false, sortBy = 'created_at', sortDir = 'desc') =>
   api.get<{ tokens: ClientToken[] }>('/tokens', {

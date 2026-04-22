@@ -5,30 +5,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	aibpkg "github.com/thomas-illiet/ai-bridge/aibridge"
 	"github.com/thomas-illiet/ai-bridge/models"
 	"github.com/thomas-illiet/ai-bridge/services"
 	"gorm.io/gorm"
 )
 
 type providerResponse struct {
-	models.AIProvider
+	models.Provider
 	APIKeySet bool `json:"apiKeySet"`
 }
 
-func toResponse(p *models.AIProvider) providerResponse {
+func toResponse(p *models.Provider) providerResponse {
 	return providerResponse{
-		AIProvider: *p,
+		Provider: *p,
 		APIKeySet:  p.APIKey != "",
 	}
 }
 
-func triggerReload(bm *aibpkg.BridgeManager) error {
-	providers, err := services.BuildProviders()
-	if err != nil {
-		return err
-	}
-	return bm.Reload(providers)
+func triggerReload(c *gin.Context, pub services.ReloadPublisher) error {
+	return pub.PublishReload(c.Request.Context())
 }
 
 // ListProviders returns all AI providers.
@@ -64,8 +59,8 @@ func GetProvider(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"provider": toResponse(p)})
 }
 
-// CreateProvider creates a new AI provider and hot-reloads the bridge.
-func CreateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
+// CreateProvider creates a new AI provider and signals the bridge to reload.
+func CreateProvider(pub services.ReloadPublisher) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req services.CreateProviderRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,7 +72,7 @@ func CreateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
-		if reloadErr := triggerReload(bm); reloadErr != nil {
+		if reloadErr := triggerReload(c, pub); reloadErr != nil {
 			c.JSON(http.StatusCreated, gin.H{"provider": toResponse(p), "reload_error": reloadErr.Error()})
 			return
 		}
@@ -85,8 +80,8 @@ func CreateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 	}
 }
 
-// UpdateProvider updates an existing provider and hot-reloads the bridge.
-func UpdateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
+// UpdateProvider updates an existing provider and signals the bridge to reload.
+func UpdateProvider(pub services.ReloadPublisher) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
@@ -107,7 +102,7 @@ func UpdateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if reloadErr := triggerReload(bm); reloadErr != nil {
+		if reloadErr := triggerReload(c, pub); reloadErr != nil {
 			c.JSON(http.StatusOK, gin.H{"provider": toResponse(p), "reload_error": reloadErr.Error()})
 			return
 		}
@@ -115,8 +110,8 @@ func UpdateProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 	}
 }
 
-// DeleteProvider soft-deletes a provider and hot-reloads the bridge.
-func DeleteProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
+// DeleteProvider soft-deletes a provider and signals the bridge to reload.
+func DeleteProvider(pub services.ReloadPublisher) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
@@ -131,7 +126,7 @@ func DeleteProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if reloadErr := triggerReload(bm); reloadErr != nil {
+		if reloadErr := triggerReload(c, pub); reloadErr != nil {
 			c.JSON(http.StatusOK, gin.H{"reload_error": reloadErr.Error()})
 			return
 		}
@@ -139,13 +134,13 @@ func DeleteProvider(bm *aibpkg.BridgeManager) gin.HandlerFunc {
 	}
 }
 
-// ReloadProviders forces a hot-reload of the bridge from the current DB state.
-func ReloadProviders(bm *aibpkg.BridgeManager) gin.HandlerFunc {
+// ReloadProviders forces a reload of the bridge from the current DB state.
+func ReloadProviders(pub services.ReloadPublisher) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := triggerReload(bm); err != nil {
+		if err := triggerReload(c, pub); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "bridge reloaded"})
+		c.JSON(http.StatusOK, gin.H{"message": "reload signal sent"})
 	}
 }

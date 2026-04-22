@@ -39,7 +39,7 @@ func (c *ProviderConfig) Scan(v interface{}) error {
 	}
 }
 
-type AIProvider struct {
+type Provider struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	Name        string         `gorm:"not null;uniqueIndex" json:"name"`
 	DisplayName string         `gorm:"not null;default:''" json:"displayName"`
@@ -53,7 +53,7 @@ type AIProvider struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-func (p *AIProvider) BeforeCreate(_ *gorm.DB) error {
+func (p *Provider) BeforeCreate(_ *gorm.DB) error {
 	if p.ID == uuid.Nil {
 		p.ID = uuid.New()
 	}

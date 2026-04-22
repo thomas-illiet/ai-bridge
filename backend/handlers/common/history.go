@@ -31,9 +31,9 @@ const HistoryBaseSQL = `
 		COALESCE(ru.username, ai.initiator_id) AS username,
 		COALESCE(SUM(atu.input_tokens),  0) AS input_tokens,
 		COALESCE(SUM(atu.output_tokens), 0) AS output_tokens
-	FROM aibridge_interceptions ai
-	LEFT JOIN registered_users          ru  ON ru.id  = ai.initiator_id
-	LEFT JOIN aibridge_token_usages     atu ON atu.interception_id = ai.id
+	FROM interceptions ai
+	LEFT JOIN users          ru  ON ru.id  = ai.initiator_id
+	LEFT JOIN token_usages   atu ON atu.interception_id = ai.id
 `
 
 // sortableColumns maps frontend sort keys to safe SQL expressions.
@@ -50,9 +50,9 @@ var sortableColumns = map[string]string{
 // HistoryQuery runs a paginated, sortable interception query with a shared WHERE clause.
 func HistoryQuery(whereSQL string, whereArgs []any, page, pageSize int, sortBy, sortDir string) ([]InterceptionRow, int64, error) {
 	countSQL := `SELECT COUNT(DISTINCT ai.id)
-		FROM aibridge_interceptions ai
-		LEFT JOIN registered_users      ru  ON ru.id = ai.initiator_id
-		LEFT JOIN aibridge_token_usages atu ON atu.interception_id = ai.id
+		FROM interceptions ai
+		LEFT JOIN users        ru  ON ru.id = ai.initiator_id
+		LEFT JOIN token_usages atu ON atu.interception_id = ai.id
 		` + whereSQL
 
 	var total int64

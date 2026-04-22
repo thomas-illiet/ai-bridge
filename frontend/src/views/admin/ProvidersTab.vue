@@ -175,9 +175,9 @@ onMounted(loadProviders)
     <!-- ── Providers table card ─────────────────────────────────────────── -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Providers</h2>
+        <h2 class="card-title">Provider entries</h2>
         <div class="header-actions">
-          <button class="btn btn-secondary btn-sm" :disabled="reloading" @click="forceReload">
+          <button v-if="!isEmpty" class="btn btn-secondary btn-sm" :disabled="reloading" @click="forceReload">
             {{ reloading ? 'Reloading…' : 'Force Reload' }}
           </button>
           <button class="btn btn-primary btn-sm" @click="openAdd">Add Provider</button>

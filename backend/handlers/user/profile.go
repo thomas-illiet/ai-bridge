@@ -73,42 +73,42 @@ func GetDashboard(c *gin.Context) {
 	var activeUsers int64
 
 	if scope == "global" {
-		database.DB.Model(&models.AibridgeInterception{}).Count(&totalRequests)
+		database.DB.Model(&models.Interception{}).Count(&totalRequests)
 
-		database.DB.Model(&models.AibridgeTokenUsage{}).
+		database.DB.Model(&models.TokenUsage{}).
 			Select("COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output").
 			Scan(&tokens)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("TO_CHAR(started_at, 'YYYY-MM-DD') as date, COUNT(*) as count").
 			Where("started_at >= ?", since).
 			Group("TO_CHAR(started_at, 'YYYY-MM-DD')").
 			Order("date ASC").
 			Scan(&daily)
 
-		database.DB.Model(&models.AibridgeTokenUsage{}).
-			Joins("JOIN aibridge_interceptions ON aibridge_interceptions.id = aibridge_token_usages.interception_id").
-			Select("TO_CHAR(aibridge_interceptions.started_at, 'YYYY-MM-DD') as date, SUM(aibridge_token_usages.input_tokens + aibridge_token_usages.output_tokens) as total").
-			Where("aibridge_interceptions.started_at >= ?", since).
-			Group("TO_CHAR(aibridge_interceptions.started_at, 'YYYY-MM-DD')").
+		database.DB.Model(&models.TokenUsage{}).
+			Joins("JOIN interceptions ON interceptions.id = token_usages.interception_id").
+			Select("TO_CHAR(interceptions.started_at, 'YYYY-MM-DD') as date, SUM(token_usages.input_tokens + token_usages.output_tokens) as total").
+			Where("interceptions.started_at >= ?", since).
+			Group("TO_CHAR(interceptions.started_at, 'YYYY-MM-DD')").
 			Order("date ASC").
 			Scan(&dailyToks)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("provider, COUNT(*) as count").
 			Group("provider").Order("count DESC").Limit(5).
 			Scan(&byProvider)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("model, COUNT(*) as count").
 			Group("model").Order("count DESC").Limit(5).
 			Scan(&byModel)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Distinct("initiator_id").Count(&activeUsers)
 
 		var tmp lastRequestInfo
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("model, provider, started_at").
 			Order("started_at DESC").Limit(1).
 			Scan(&tmp)
@@ -118,44 +118,44 @@ func GetDashboard(c *gin.Context) {
 	} else {
 		uid := user.ID
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Where("initiator_id = ?", uid).Count(&totalRequests)
 
-		database.DB.Model(&models.AibridgeTokenUsage{}).
+		database.DB.Model(&models.TokenUsage{}).
 			Select("COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output").
-			Joins("JOIN aibridge_interceptions ON aibridge_interceptions.id = aibridge_token_usages.interception_id").
-			Where("aibridge_interceptions.initiator_id = ?", uid).
+			Joins("JOIN interceptions ON interceptions.id = token_usages.interception_id").
+			Where("interceptions.initiator_id = ?", uid).
 			Scan(&tokens)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("TO_CHAR(started_at, 'YYYY-MM-DD') as date, COUNT(*) as count").
 			Where("initiator_id = ? AND started_at >= ?", uid, since).
 			Group("TO_CHAR(started_at, 'YYYY-MM-DD')").
 			Order("date ASC").
 			Scan(&daily)
 
-		database.DB.Model(&models.AibridgeTokenUsage{}).
-			Joins("JOIN aibridge_interceptions ON aibridge_interceptions.id = aibridge_token_usages.interception_id").
-			Select("TO_CHAR(aibridge_interceptions.started_at, 'YYYY-MM-DD') as date, SUM(aibridge_token_usages.input_tokens + aibridge_token_usages.output_tokens) as total").
-			Where("aibridge_interceptions.initiator_id = ? AND aibridge_interceptions.started_at >= ?", uid, since).
-			Group("TO_CHAR(aibridge_interceptions.started_at, 'YYYY-MM-DD')").
+		database.DB.Model(&models.TokenUsage{}).
+			Joins("JOIN interceptions ON interceptions.id = token_usages.interception_id").
+			Select("TO_CHAR(interceptions.started_at, 'YYYY-MM-DD') as date, SUM(token_usages.input_tokens + token_usages.output_tokens) as total").
+			Where("interceptions.initiator_id = ? AND interceptions.started_at >= ?", uid, since).
+			Group("TO_CHAR(interceptions.started_at, 'YYYY-MM-DD')").
 			Order("date ASC").
 			Scan(&dailyToks)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("provider, COUNT(*) as count").
 			Where("initiator_id = ?", uid).
 			Group("provider").Order("count DESC").Limit(5).
 			Scan(&byProvider)
 
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("model, COUNT(*) as count").
 			Where("initiator_id = ?", uid).
 			Group("model").Order("count DESC").Limit(5).
 			Scan(&byModel)
 
 		var tmp lastRequestInfo
-		database.DB.Model(&models.AibridgeInterception{}).
+		database.DB.Model(&models.Interception{}).
 			Select("model, provider, started_at").
 			Where("initiator_id = ?", uid).
 			Order("started_at DESC").Limit(1).

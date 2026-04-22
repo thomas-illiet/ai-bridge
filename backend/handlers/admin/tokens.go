@@ -13,19 +13,19 @@ import (
 )
 
 type adminTokenRow struct {
-	models.ClientToken
+	models.APIToken
 	Username string `json:"username"`
 }
 
 var allowedAdminTokenSortColumns = map[string]string{
-	"name":         "client_tokens.name",
-	"username":     "registered_users.username",
-	"created_at":   "client_tokens.created_at",
-	"expires_at":   "client_tokens.expires_at",
-	"last_used_at": "client_tokens.last_used_at",
+	"name":         "api_tokens.name",
+	"username":     "users.username",
+	"created_at":   "api_tokens.created_at",
+	"expires_at":   "api_tokens.expires_at",
+	"last_used_at": "api_tokens.last_used_at",
 }
 
-const adminTokenStatusExpr = "CASE WHEN client_tokens.revoked_at IS NOT NULL THEN 'revoked' WHEN client_tokens.expires_at IS NOT NULL AND client_tokens.expires_at < NOW() THEN 'expired' ELSE 'active' END"
+const adminTokenStatusExpr = "CASE WHEN api_tokens.revoked_at IS NOT NULL THEN 'revoked' WHEN api_tokens.expires_at IS NOT NULL AND api_tokens.expires_at < NOW() THEN 'expired' ELSE 'active' END"
 
 // ListTokens returns a paginated list of all client tokens with their owner's username.
 func ListTokens(c *gin.Context) {
@@ -53,33 +53,33 @@ func ListTokens(c *gin.Context) {
 	} else {
 		sortCol, ok := allowedAdminTokenSortColumns[sortBy]
 		if !ok {
-			sortCol = "client_tokens.created_at"
+			sortCol = "api_tokens.created_at"
 		}
 		adminTokenOrderExpr = sortCol + " " + sortDir
 	}
 
-	q := database.DB.Model(&models.ClientToken{}).
-		Joins("LEFT JOIN registered_users ON registered_users.id = client_tokens.user_id").
-		Where("client_tokens.deleted_at IS NULL")
+	q := database.DB.Model(&models.APIToken{}).
+		Joins("LEFT JOIN users ON users.id = api_tokens.user_id").
+		Where("api_tokens.deleted_at IS NULL")
 
 	if common.CallerIsManager(c) {
-		q = q.Where("registered_users.role != ?", models.RoleService)
+		q = q.Where("users.role != ?", models.RoleService)
 	}
 
 	if !includeInactive {
-		q = q.Where("client_tokens.revoked_at IS NULL AND (client_tokens.expires_at IS NULL OR client_tokens.expires_at > NOW())")
+		q = q.Where("api_tokens.revoked_at IS NULL AND (api_tokens.expires_at IS NULL OR api_tokens.expires_at > NOW())")
 	}
 
 	if search != "" {
 		like := "%" + search + "%"
-		q = q.Where("client_tokens.name ILIKE ? OR registered_users.username ILIKE ?", like, like)
+		q = q.Where("api_tokens.name ILIKE ? OR users.username ILIKE ?", like, like)
 	}
 
 	var total int64
 	q.Count(&total)
 
 	var rows []adminTokenRow
-	q.Select("client_tokens.*, registered_users.username").
+	q.Select("api_tokens.*, users.username").
 		Order(gorm.Expr(adminTokenOrderExpr)).
 		Limit(pageSize).Offset(offset).
 		Scan(&rows)
@@ -105,12 +105,12 @@ func RevokeToken(c *gin.Context) {
 	}
 
 	if common.CallerIsManager(c) {
-		var token models.ClientToken
+		var token models.APIToken
 		if err := database.DB.Where("id = ?", id).First(&token).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
 			return
 		}
-		var owner models.RegisteredUser
+		var owner models.User
 		if err := database.DB.Where("id = ?", token.UserID).First(&owner).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "owner lookup failed"})
 			return
@@ -121,7 +121,7 @@ func RevokeToken(c *gin.Context) {
 		}
 	}
 
-	result := database.DB.Model(&models.ClientToken{}).
+	result := database.DB.Model(&models.APIToken{}).
 		Where("id = ? AND revoked_at IS NULL", id).
 		Update("revoked_at", gorm.Expr("NOW()"))
 
@@ -145,12 +145,12 @@ func UnrevokeToken(c *gin.Context) {
 	}
 
 	if common.CallerIsManager(c) {
-		var token models.ClientToken
+		var token models.APIToken
 		if err := database.DB.Where("id = ?", id).First(&token).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
 			return
 		}
-		var owner models.RegisteredUser
+		var owner models.User
 		if err := database.DB.Where("id = ?", token.UserID).First(&owner).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "owner lookup failed"})
 			return
@@ -161,7 +161,7 @@ func UnrevokeToken(c *gin.Context) {
 		}
 	}
 
-	result := database.DB.Model(&models.ClientToken{}).
+	result := database.DB.Model(&models.APIToken{}).
 		Where("id = ? AND revoked_at IS NOT NULL AND (expires_at IS NULL OR expires_at > NOW())", id).
 		Update("revoked_at", nil)
 

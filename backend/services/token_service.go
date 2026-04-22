@@ -21,7 +21,7 @@ type PATClaims struct {
 var ErrTokenNameTaken = errors.New("a token with this name already exists")
 
 func IsTokenNameTaken(userID, name string, excludeID *uuid.UUID) (bool, error) {
-	q := database.DB.Model(&models.ClientToken{}).
+	q := database.DB.Model(&models.APIToken{}).
 		Where("user_id = ? AND name = ? AND revoked_at IS NULL", userID, name)
 	if excludeID != nil {
 		q = q.Where("id != ?", *excludeID)
@@ -33,7 +33,7 @@ func IsTokenNameTaken(userID, name string, excludeID *uuid.UUID) (bool, error) {
 	return count > 0, nil
 }
 
-func CreateToken(userID, name, description, secret string, durationDays int) (*models.ClientToken, string, error) {
+func CreateToken(userID, name, description, secret string, durationDays int) (*models.APIToken, string, error) {
 	taken, err := IsTokenNameTaken(userID, name, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("check name: %w", err)
@@ -59,7 +59,7 @@ func CreateToken(userID, name, description, secret string, durationDays int) (*m
 		return nil, "", fmt.Errorf("sign token: %w", err)
 	}
 
-	record := &models.ClientToken{
+	record := &models.APIToken{
 		ID:          id,
 		UserID:      userID,
 		Name:        name,
@@ -75,8 +75,8 @@ func CreateToken(userID, name, description, secret string, durationDays int) (*m
 	return record, raw, nil
 }
 
-func UpdateToken(id uuid.UUID, userID, name, description string) (*models.ClientToken, error) {
-	var record models.ClientToken
+func UpdateToken(id uuid.UUID, userID, name, description string) (*models.APIToken, error) {
+	var record models.APIToken
 	if err := database.DB.Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).First(&record).Error; err != nil {
 		return nil, err
 	}
@@ -104,13 +104,13 @@ func HashToken(raw string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func LookupAndVerify(jti, raw, secret string) (*models.ClientToken, error) {
+func LookupAndVerify(jti, raw, secret string) (*models.APIToken, error) {
 	id, err := uuid.Parse(jti)
 	if err != nil {
 		return nil, fmt.Errorf("invalid jti: %w", err)
 	}
 
-	var record models.ClientToken
+	var record models.APIToken
 	if err := database.DB.Where("id = ?", id).First(&record).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -152,7 +152,7 @@ var allowedTokenSortColumns = map[string]string{
 
 const tokenStatusExpr = "CASE WHEN revoked_at IS NOT NULL THEN 'revoked' WHEN expires_at IS NOT NULL AND expires_at < NOW() THEN 'expired' ELSE 'active' END"
 
-func ListUserTokens(userID string, includeInactive bool, sortBy, sortDir string) ([]models.ClientToken, error) {
+func ListUserTokens(userID string, includeInactive bool, sortBy, sortDir string) ([]models.APIToken, error) {
 	if sortDir != "asc" {
 		sortDir = "desc"
 	}
@@ -168,7 +168,7 @@ func ListUserTokens(userID string, includeInactive bool, sortBy, sortDir string)
 		orderExpr = col + " " + sortDir
 	}
 
-	var tokens []models.ClientToken
+	var tokens []models.APIToken
 	q := database.DB.Where("user_id = ?", userID)
 	if !includeInactive {
 		q = q.Where("revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())")
@@ -180,7 +180,7 @@ func ListUserTokens(userID string, includeInactive bool, sortBy, sortDir string)
 }
 
 func RevokeToken(id uuid.UUID, userID string) error {
-	result := database.DB.Model(&models.ClientToken{}).
+	result := database.DB.Model(&models.APIToken{}).
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL", id, userID).
 		Update("revoked_at", time.Now())
 

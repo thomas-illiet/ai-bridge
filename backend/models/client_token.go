@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type ClientToken struct {
+type APIToken struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID      string         `gorm:"not null;index" json:"userId"`
 	Name        string         `gorm:"not null" json:"name"`
@@ -21,17 +21,17 @@ type ClientToken struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-func (t *ClientToken) BeforeCreate(_ *gorm.DB) error {
+func (t *APIToken) BeforeCreate(_ *gorm.DB) error {
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
 	}
 	return nil
 }
 
-func (t *ClientToken) IsRevoked() bool {
+func (t *APIToken) IsRevoked() bool {
 	return t.RevokedAt != nil
 }
 
-func (t *ClientToken) IsExpired() bool {
+func (t *APIToken) IsExpired() bool {
 	return t.ExpiresAt != nil && time.Now().After(*t.ExpiresAt)
 }

@@ -108,7 +108,7 @@ func infoBox(content string) string {
 }
 
 // SendNewRequestNotification notifies admin team of a new access request.
-func SendNewRequestNotification(cfg *config.Config, user *models.RegisteredUser, req *models.AccessRequest) {
+func SendNewRequestNotification(cfg *config.Config, user *models.User, req *models.AccessRequest) {
 	to := adminRecipients(cfg)
 	subject := fmt.Sprintf("[AI Bridge] New access request from %s", user.Username)
 
@@ -149,7 +149,7 @@ func SendNewRequestNotification(cfg *config.Config, user *models.RegisteredUser,
 }
 
 // SendRequestApproved notifies the user that their request was approved.
-func SendRequestApproved(cfg *config.Config, user *models.RegisteredUser) {
+func SendRequestApproved(cfg *config.Config, user *models.User) {
 	if user.Email == "" {
 		return
 	}
@@ -171,7 +171,7 @@ func SendRequestApproved(cfg *config.Config, user *models.RegisteredUser) {
 }
 
 // SendRequestRejected notifies the user that their request was rejected.
-func SendRequestRejected(cfg *config.Config, user *models.RegisteredUser, note string) {
+func SendRequestRejected(cfg *config.Config, user *models.User, note string) {
 	if user.Email == "" {
 		return
 	}

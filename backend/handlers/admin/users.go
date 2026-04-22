@@ -14,7 +14,7 @@ import (
 )
 
 type userSummary struct {
-	models.RegisteredUser
+	models.User
 	TotalRequests int64 `json:"totalRequests"`
 	TotalInput    int64 `json:"totalInput"`
 	TotalOutput   int64 `json:"totalOutput"`
@@ -70,18 +70,18 @@ func ListUsers(c *gin.Context) {
 			COALESCE(req.cnt, 0)        AS total_requests,
 			COALESCE(tok.total_input, 0)  AS total_input,
 			COALESCE(tok.total_output, 0) AS total_output
-		FROM registered_users u
+		FROM users u
 		LEFT JOIN (
 			SELECT initiator_id, COUNT(*) AS cnt
-			FROM aibridge_interceptions
+			FROM interceptions
 			GROUP BY initiator_id
 		) req ON req.initiator_id = u.id
 		LEFT JOIN (
 			SELECT ai.initiator_id,
 				COALESCE(SUM(atu.input_tokens),  0) AS total_input,
 				COALESCE(SUM(atu.output_tokens), 0) AS total_output
-			FROM aibridge_token_usages atu
-			JOIN aibridge_interceptions ai ON ai.id = atu.interception_id
+			FROM token_usages atu
+			JOIN interceptions ai ON ai.id = atu.interception_id
 			GROUP BY ai.initiator_id
 		) tok ON tok.initiator_id = u.id
 		ORDER BY ` + col + ` ` + sortDir
@@ -100,7 +100,7 @@ func ListUsers(c *gin.Context) {
 func GetUserStats(c *gin.Context) {
 	id := c.Param("id")
 	if common.CallerIsManager(c) {
-		var target models.RegisteredUser
+		var target models.User
 		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil ||
 			target.Role == models.RoleAdmin || target.Role == models.RoleService {
 			c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot view stats for this user"})
@@ -109,33 +109,33 @@ func GetUserStats(c *gin.Context) {
 	}
 
 	var totalRequests int64
-	database.DB.Model(&models.AibridgeInterception{}).
+	database.DB.Model(&models.Interception{}).
 		Where("initiator_id = ?", id).Count(&totalRequests)
 
 	var tokens userTokenSum
-	database.DB.Model(&models.AibridgeTokenUsage{}).
-		Select("'' as initiator_id, COALESCE(SUM(aibridge_token_usages.input_tokens),0) as total_input, COALESCE(SUM(aibridge_token_usages.output_tokens),0) as total_output").
-		Joins("JOIN aibridge_interceptions ai ON ai.id = aibridge_token_usages.interception_id").
+	database.DB.Model(&models.TokenUsage{}).
+		Select("'' as initiator_id, COALESCE(SUM(token_usages.input_tokens),0) as total_input, COALESCE(SUM(token_usages.output_tokens),0) as total_output").
+		Joins("JOIN interceptions ai ON ai.id = token_usages.interception_id").
 		Where("ai.initiator_id = ?", id).
 		Scan(&tokens)
 
 	since := time.Now().UTC().AddDate(0, 0, -6).Truncate(24 * time.Hour)
 	daily := make([]userDailyCount, 0)
-	database.DB.Model(&models.AibridgeInterception{}).
+	database.DB.Model(&models.Interception{}).
 		Select("TO_CHAR(started_at, 'YYYY-MM-DD') as date, COUNT(*) as count").
 		Where("initiator_id = ? AND started_at >= ?", id, since).
 		Group("TO_CHAR(started_at, 'YYYY-MM-DD')").Order("date ASC").
 		Scan(&daily)
 
 	byProvider := make([]userProviderCount, 0)
-	database.DB.Model(&models.AibridgeInterception{}).
+	database.DB.Model(&models.Interception{}).
 		Select("provider, COUNT(*) as count").
 		Where("initiator_id = ?", id).
 		Group("provider").Order("count DESC").
 		Scan(&byProvider)
 
 	byModel := make([]userModelCount, 0)
-	database.DB.Model(&models.AibridgeInterception{}).
+	database.DB.Model(&models.Interception{}).
 		Select("model, COUNT(*) as count").
 		Where("initiator_id = ?", id).
 		Group("model").Order("count DESC").Limit(10).
@@ -160,7 +160,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 	if common.CallerIsManager(c) {
-		var target models.RegisteredUser
+		var target models.User
 		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
@@ -171,10 +171,10 @@ func DeleteUser(c *gin.Context) {
 		}
 	}
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", id).Delete(&models.ClientToken{}).Error; err != nil {
+		if err := tx.Where("user_id = ?", id).Delete(&models.APIToken{}).Error; err != nil {
 			return err
 		}
-		result := tx.Delete(&models.RegisteredUser{}, "id = ?", id)
+		result := tx.Delete(&models.User{}, "id = ?", id)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -216,7 +216,7 @@ func UpdateUserRole(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "managers can only assign user or none roles"})
 			return
 		}
-		var target models.RegisteredUser
+		var target models.User
 		if err := database.DB.Where("id = ?", id).First(&target).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
@@ -243,7 +243,7 @@ func UpdateUserRole(c *gin.Context) {
 	}
 
 	updates := map[string]any{"role": body.Role, "role_expires_at": expiresAt}
-	result := database.DB.Model(&models.RegisteredUser{}).Where("id = ?", id).Updates(updates)
+	result := database.DB.Model(&models.User{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return

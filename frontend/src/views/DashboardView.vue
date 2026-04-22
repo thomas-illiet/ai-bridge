@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { getDashboard } from '@/services/api'
+import { getDashboard, getStatus } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
-import axios from 'axios'
 import type { StatusResponse } from '@/services/api'
 import StatGrid from '@/views/dashboard/StatGrid.vue'
 import RequestsChart from '@/views/dashboard/RequestsChart.vue'
@@ -10,6 +9,7 @@ import TokensChart from '@/views/dashboard/TokensChart.vue'
 import ProviderBreakdown from '@/views/dashboard/ProviderBreakdown.vue'
 import ModelBreakdown from '@/views/dashboard/ModelBreakdown.vue'
 import ServiceStatus from '@/views/dashboard/ServiceStatus.vue'
+import UserConsumptionCard from '@/views/dashboard/UserConsumptionCard.vue'
 
 interface DailyCount    { date: string; count: number }
 interface DailyTokens   { date: string; total: number }
@@ -47,7 +47,7 @@ async function fetchAll() {
     const effectiveScope = auth.isElevated ? scope.value : 'user'
     const [dashRes, statusRes] = await Promise.allSettled([
       getDashboard(effectiveScope),
-      axios.get<StatusResponse>('/api/status'),
+      getStatus(),
     ])
     if (dashRes.status === 'fulfilled') data.value = dashRes.value.data
     else error.value = 'Failed to load dashboard data'
@@ -101,7 +101,7 @@ function formatTime(d: Date) {
       <div class="header-right">
         <div v-if="auth.isElevated" class="scope-toggle">
           <button class="scope-btn" :class="{ active: scope === 'user' }" @click="scope = 'user'">
-            Mon activity
+            My activity
           </button>
           <button class="scope-btn" :class="{ active: scope === 'global' }" @click="scope = 'global'">
             Global
@@ -147,6 +147,8 @@ function formatTime(d: Date) {
         <ProviderBreakdown :providers="data.byProvider" />
         <ModelBreakdown :models="data.byModel" />
       </div>
+
+      <UserConsumptionCard v-if="data.scope === 'global'" />
 
       <ServiceStatus :status="status" :refreshing="refreshing" />
     </template>

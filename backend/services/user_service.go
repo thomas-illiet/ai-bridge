@@ -14,8 +14,8 @@ import (
 // The very first user ever registered receives the "admin" role.
 // Subsequent new users receive the "none" role.
 // Existing users have their username/email refreshed but role unchanged.
-func GetOrCreateUser(id, username, email string) (*models.RegisteredUser, error) {
-	var user models.RegisteredUser
+func GetOrCreateUser(id, username, email string) (*models.User, error) {
+	var user models.User
 	err := database.DB.Where("id = ?", id).First(&user).Error
 
 	if err == nil {
@@ -37,11 +37,11 @@ func GetOrCreateUser(id, username, email string) (*models.RegisteredUser, error)
 	// New user — determine role.
 	role := models.RoleNone
 	var count int64
-	if database.DB.Model(&models.RegisteredUser{}).Where("role != ?", models.RoleService).Count(&count); count == 0 {
+	if database.DB.Model(&models.User{}).Where("role != ?", models.RoleService).Count(&count); count == 0 {
 		role = models.RoleAdmin
 	}
 
-	user = models.RegisteredUser{
+	user = models.User{
 		ID:       id,
 		Username: username,
 		Email:    email,
@@ -54,8 +54,8 @@ func GetOrCreateUser(id, username, email string) (*models.RegisteredUser, error)
 }
 
 // GetUserByID returns the registered user or nil if not found.
-func GetUserByID(id string) (*models.RegisteredUser, error) {
-	var user models.RegisteredUser
+func GetUserByID(id string) (*models.User, error) {
+	var user models.User
 	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -66,8 +66,8 @@ func GetUserByID(id string) (*models.RegisteredUser, error) {
 }
 
 // CreateServiceAccount creates a synthetic user that can only authenticate via PAT.
-func CreateServiceAccount(username, description string) (*models.RegisteredUser, error) {
-	user := models.RegisteredUser{
+func CreateServiceAccount(username, description string) (*models.User, error) {
+	user := models.User{
 		ID:          "svc-" + uuid.New().String(),
 		Username:    username,
 		Description: description,
@@ -82,16 +82,16 @@ func CreateServiceAccount(username, description string) (*models.RegisteredUser,
 // DeleteServiceAccount deletes a service account and all its tokens atomically.
 func DeleteServiceAccount(id string) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		var u models.RegisteredUser
+		var u models.User
 		if err := tx.Where("id = ? AND role = ?", id, models.RoleService).First(&u).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return fmt.Errorf("not found")
 			}
 			return err
 		}
-		if err := tx.Where("user_id = ?", id).Delete(&models.ClientToken{}).Error; err != nil {
+		if err := tx.Where("user_id = ?", id).Delete(&models.APIToken{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&models.RegisteredUser{}, "id = ?", id).Error
+		return tx.Delete(&models.User{}, "id = ?", id).Error
 	})
 }

@@ -33,7 +33,7 @@ func ListWhitelist(c *gin.Context) {
 		sortDir = "desc"
 	}
 
-	var entries []models.IPWhitelistEntry
+	var entries []models.IPAllowlist
 	if err := database.DB.Order(gorm.Expr(col + " " + sortDir)).Find(&entries).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -62,7 +62,7 @@ func AddWhitelist(c *gin.Context) {
 	}
 
 	user := middleware.GetUser(c)
-	entry := models.IPWhitelistEntry{
+	entry := models.IPAllowlist{
 		ID:          uuid.New(),
 		CIDR:        body.CIDR,
 		Description: body.Description,
@@ -85,7 +85,7 @@ func DeleteWhitelist(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	result := database.DB.Delete(&models.IPWhitelistEntry{}, "id = ?", id)
+	result := database.DB.Delete(&models.IPAllowlist{}, "id = ?", id)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return
@@ -112,7 +112,7 @@ func ToggleWhitelist(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	result := database.DB.Model(&models.IPWhitelistEntry{}).Where("id = ?", id).Update("enabled", body.Enabled)
+	result := database.DB.Model(&models.IPAllowlist{}).Where("id = ?", id).Update("enabled", body.Enabled)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
 		return

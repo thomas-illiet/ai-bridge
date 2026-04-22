@@ -59,17 +59,17 @@ func GetHistoryStats(c *gin.Context) {
 			COUNT(DISTINCT ai.id)                    AS total,
 			COALESCE(SUM(atu.input_tokens),  0)      AS total_input,
 			COALESCE(SUM(atu.output_tokens), 0)      AS total_output
-		FROM aibridge_interceptions ai
-		LEFT JOIN aibridge_token_usages atu ON atu.interception_id = ai.id
+		FROM interceptions ai
+		LEFT JOIN token_usages atu ON atu.interception_id = ai.id
 		WHERE ai.initiator_id = ?
-	`, user.ID).Scan(&stats)
+`, user.ID).Scan(&stats)
 
 	var topModel string
 	database.DB.Raw(`
-		SELECT model FROM aibridge_interceptions
+		SELECT model FROM interceptions
 		WHERE initiator_id = ?
 		GROUP BY model ORDER BY COUNT(*) DESC LIMIT 1
-	`, user.ID).Scan(&topModel)
+`, user.ID).Scan(&topModel)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total":       stats.Total,
@@ -95,7 +95,7 @@ func GetHistoryDetail(c *gin.Context) {
 	}
 
 	var prompts []string
-	database.DB.Model(&models.AibridgeUserPrompt{}).
+	database.DB.Model(&models.UserPrompt{}).
 		Where("interception_id = ?", id).
 		Order("created_at ASC").
 		Pluck("prompt", &prompts)

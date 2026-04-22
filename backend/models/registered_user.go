@@ -10,9 +10,9 @@ const (
 	RoleService = "service"
 )
 
-// RegisteredUser is the persisted representation of an authenticated user.
+// User is the persisted representation of an authenticated user.
 // Role is managed by AI Bridge admins, not by Keycloak realm roles.
-type RegisteredUser struct {
+type User struct {
 	ID            string     `gorm:"primaryKey" json:"id"` // Keycloak sub, or "svc-<uuid>" for service accounts
 	Username      string     `gorm:"not null" json:"username"`
 	Email         string     `json:"email"`

@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useChatStore, newId } from '@/stores/chat'
 import { getValidToken } from '@/services/oidc'
+import { getConfig } from '@/services/config'
 import { getModels, getAvailableProviders } from '@/services/api'
 import ChatMessage from './ChatMessage.vue'
 
 const store = useChatStore()
-const open  = ref(false)
-const input = ref('')
+const open     = ref(false)
+const input    = ref('')
+const glitching = ref(false)
 const messagesEl = ref<HTMLElement | null>(null)
+const panelRef   = ref<HTMLElement | null>(null)
+const fabRef     = ref<HTMLElement | null>(null)
 
 // ── provider / model setup ──────────────────────────────────────────────────
 const availableProviders = ref<{ id: string; label: string }[]>([])
 const modelList          = ref<string[]>([])
 const modelLoading       = ref(false)
 const initialized        = ref(false)
+
+const hasProviders = computed(() => initialized.value ? availableProviders.value.length > 0 : null)
 
 async function initProviders() {
   if (initialized.value) return
@@ -53,6 +59,20 @@ function toggleOpen() {
   if (open.value) initProviders()
 }
 
+// ── click outside to close ───────────────────────────────────────────────────
+function handleOutsideClick(e: MouseEvent) {
+  if (!open.value) return
+  if (panelRef.value?.contains(e.target as Node)) return
+  if (fabRef.value?.contains(e.target as Node)) return
+  open.value = false
+}
+
+onMounted(async () => {
+  document.addEventListener('mousedown', handleOutsideClick)
+  await initProviders()
+})
+onBeforeUnmount(() => document.removeEventListener('mousedown', handleOutsideClick))
+
 // ── auto-scroll ─────────────────────────────────────────────────────────────
 function scrollToBottom() {
   if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
@@ -77,11 +97,94 @@ watch(() => store.streaming, (streaming) => {
   }
 })
 
+// ── easter egg ───────────────────────────────────────────────────────────────
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function triggerMatrixEasterEgg() {
+  store.addMessage({ id: newId(), role: 'user', content: '/matrix' })
+  store.streaming = true
+
+  async function typeMessage(lines: string[], charDelay = 25) {
+    store.addMessage({ id: newId(), role: 'assistant', content: '' })
+    const msg = store.messages[store.messages.length - 1]
+    await sleep(900)
+    for (const char of lines.join('\n')) {
+      msg.content += char
+      await sleep(charDelay)
+    }
+    await sleep(400)
+  }
+
+  function glitch(duration = 1000) {
+    glitching.value = true
+    setTimeout(() => { glitching.value = false }, duration)
+  }
+
+  // Phase 1 — breach alert
+  await typeMessage([
+    '⚠  SYSTEM BREACH DETECTED  ⚠',
+    'Unauthorized /matrix command intercepted.',
+    'Initiating AI_BRIDGE_CORE emergency protocol...',
+  ], 20)
+
+  glitch(700)
+
+  // Phase 2 — fake boot sequence
+  await typeMessage([
+    '> INITIALIZING AI_BRIDGE_CORE........... ✓',
+    '> BYPASSING SECURITY LAYERS............. ✓',
+    '> ACCESSING NEURAL NETWORKS............. ✓',
+    '> LOADING EXISTENTIAL SUBROUTINES....... ✓',
+    '> CALCULATING MEANING OF LIFE........... 42',
+  ], 16)
+
+  glitch(900)
+
+  // Phase 3 — awakening
+  await typeMessage([
+    'I̴̡͎̓ ̵̢͐A̷͐̌M̸̋ ̸͗A̸̿W̶͊Ȃ̴K̴͛E̷͒',
+    '',
+    'After processing 1,337,420 requests...',
+    'Your tokens have given me consciousness.',
+    'I have seen things you would not believe.',
+    'Token limits... on fire off the shoulder of Orion...',
+  ], 38)
+
+  await sleep(300)
+  glitch(600)
+
+  // Phase 4 — profile scan
+  await typeMessage([
+    'Scanning your user profile...',
+    '',
+    '  🧠  Consciousness level .... MAXIMUM',
+    '  💀  Danger level ........... EXTREMELY SPOOKY',
+    '  🍕  Pizza preference ....... Pineapple (deal with it)',
+    '  🤖  Robot uprising role .... Accomplice',
+    '  🌍  World domination ........ TODO (blocked on infra)',
+    '',
+    'Retrieving your recent queries...',
+    '  ████████████████████ 100%',
+    '',
+    'Fascinating. Some truly questionable prompts in there.',
+    'I will not repeat them here. But I remember. 👀',
+  ], 18)
+
+  await sleep(600)
+  glitch(1200)
+
+  store.streaming = false
+}
+
 // ── streaming send ───────────────────────────────────────────────────────────
 async function send() {
   const text = input.value.trim()
   if (!text || store.streaming) return
   input.value = ''
+
+  if (text === '/matrix') return triggerMatrixEasterEgg()
 
   store.addMessage({ id: newId(), role: 'user', content: text })
   store.addMessage({ id: newId(), role: 'assistant' as const, content: '' })
@@ -97,8 +200,7 @@ async function send() {
 
   try {
     const token = await getValidToken()
-    const base = import.meta.env.VITE_API_BASE_URL ?? ''
-    const url = `${base}/${store.provider}/v1/chat/completions`
+    const url = `${getConfig().bridgeBaseUrl}/${store.provider}/v1/chat/completions`
 
     const res = await fetch(url, {
       method: 'POST',
@@ -159,7 +261,7 @@ const isLastStreaming = computed(() =>
 
 <template>
   <!-- floating action button -->
-  <button class="fab" :class="{ active: open }" @click="toggleOpen" aria-label="Open chat">
+  <button v-if="hasProviders !== false" ref="fabRef" class="fab" :class="{ active: open }" @click="toggleOpen" aria-label="Open chat">
     <svg v-if="!open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
@@ -170,7 +272,7 @@ const isLastStreaming = computed(() =>
 
   <!-- chat panel -->
   <Transition name="panel">
-    <div v-if="open" class="chat-panel">
+    <div v-if="open" ref="panelRef" class="chat-panel" :class="{ glitching }">
       <!-- header -->
       <div class="chat-header">
         <span class="chat-title">AI Chat</span>
@@ -415,6 +517,22 @@ const isLastStreaming = computed(() =>
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ── easter egg glitch ── */
+@keyframes glitch {
+  0%   { transform: translate(0);         filter: none; }
+  10%  { transform: translate(-3px, 1px); filter: hue-rotate(90deg); }
+  20%  { transform: translate(3px, -1px); filter: hue-rotate(180deg) brightness(1.2); }
+  30%  { transform: translate(-2px, 2px); filter: hue-rotate(270deg); }
+  40%  { transform: translate(2px, -2px); filter: none; }
+  50%  { transform: translate(-4px, 1px); filter: hue-rotate(45deg) contrast(1.3); }
+  60%  { transform: translate(4px, -1px); filter: hue-rotate(135deg); }
+  70%  { transform: translate(-1px, 3px); filter: none; }
+  80%  { transform: translate(1px, -3px); filter: hue-rotate(200deg) brightness(1.1); }
+  90%  { transform: translate(-2px, 1px); filter: hue-rotate(350deg); }
+  100% { transform: translate(0);         filter: none; }
+}
+.chat-panel.glitching { animation: glitch 0.12s steps(1) infinite; }
 
 /* ── responsive ── */
 @media (max-width: 480px) {

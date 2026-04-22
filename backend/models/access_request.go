@@ -19,5 +19,5 @@ type AccessRequest struct {
 	ReviewedAt *time.Time      `json:"reviewedAt"`
 	CreatedAt  time.Time       `json:"createdAt"`
 	UpdatedAt  time.Time       `json:"updatedAt"`
-	User       *RegisteredUser `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
+	User       *User `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
 }

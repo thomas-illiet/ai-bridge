@@ -29,7 +29,7 @@ func InvalidateIPCache() {
 }
 
 func (wc *whitelistCache) load() {
-	var entries []models.IPWhitelistEntry
+	var entries []models.IPAllowlist
 	database.DB.Where("enabled = true").Find(&entries)
 
 	nets := make([]*net.IPNet, 0, len(entries))

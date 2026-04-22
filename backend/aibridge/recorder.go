@@ -43,7 +43,7 @@ func (r *GORMRecorder) RecordInterception(_ context.Context, req *aibrecorder.In
 		startedAt = time.Now().UTC()
 	}
 
-	row := models.AibridgeInterception{
+	row := models.Interception{
 		ID:           req.ID,
 		InitiatorID:  req.InitiatorID,
 		Provider:     req.ProviderName,
@@ -60,7 +60,7 @@ func (r *GORMRecorder) RecordInterceptionEnded(_ context.Context, req *aibrecord
 	if endedAt.IsZero() {
 		endedAt = time.Now().UTC()
 	}
-	return database.DB.Model(&models.AibridgeInterception{}).
+	return database.DB.Model(&models.Interception{}).
 		Where("id = ?", req.ID).
 		Update("ended_at", endedAt).Error
 }
@@ -74,7 +74,7 @@ func (r *GORMRecorder) RecordTokenUsage(_ context.Context, req *aibrecorder.Toke
 		meta[k] = v
 	}
 
-	row := models.AibridgeTokenUsage{
+	row := models.TokenUsage{
 		ID:                    uuid.NewString(),
 		InterceptionID:        req.InterceptionID,
 		ProviderResponseID:    req.MsgID,
@@ -89,7 +89,7 @@ func (r *GORMRecorder) RecordTokenUsage(_ context.Context, req *aibrecorder.Toke
 }
 
 func (r *GORMRecorder) RecordPromptUsage(_ context.Context, req *aibrecorder.PromptUsageRecord) error {
-	row := models.AibridgeUserPrompt{
+	row := models.UserPrompt{
 		ID:                 uuid.NewString(),
 		InterceptionID:     req.InterceptionID,
 		ProviderResponseID: req.MsgID,
@@ -107,7 +107,7 @@ func (r *GORMRecorder) RecordToolUsage(_ context.Context, req *aibrecorder.ToolU
 		invErr = &s
 	}
 
-	row := models.AibridgeToolUsage{
+	row := models.ToolUsage{
 		ID:                 uuid.NewString(),
 		InterceptionID:     req.InterceptionID,
 		ProviderResponseID: req.MsgID,
@@ -123,7 +123,7 @@ func (r *GORMRecorder) RecordToolUsage(_ context.Context, req *aibrecorder.ToolU
 }
 
 func (r *GORMRecorder) RecordModelThought(_ context.Context, req *aibrecorder.ModelThoughtRecord) error {
-	row := models.AibridgeModelThought{
+	row := models.ModelThought{
 		ID:             uuid.NewString(),
 		InterceptionID: req.InterceptionID,
 		Content:        req.Content,
