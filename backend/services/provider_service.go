@@ -16,20 +16,22 @@ import (
 var providerNameRegex = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 type CreateProviderRequest struct {
-	Name    string                `json:"name"`
-	Type    models.ProviderType   `json:"type"`
-	BaseURL string                `json:"base_url"`
-	APIKey  string                `json:"api_key"`
-	Config  models.ProviderConfig `json:"config"`
-	Enabled bool                  `json:"enabled"`
+	Name        string                `json:"name"`
+	DisplayName string                `json:"display_name"`
+	Type        models.ProviderType   `json:"type"`
+	BaseURL     string                `json:"base_url"`
+	APIKey      string                `json:"api_key"`
+	Config      models.ProviderConfig `json:"config"`
+	Enabled     bool                  `json:"enabled"`
 }
 
 type UpdateProviderRequest struct {
-	Name    *string               `json:"name"`
-	BaseURL *string               `json:"base_url"`
-	APIKey  *string               `json:"api_key"`
-	Config  models.ProviderConfig `json:"config"`
-	Enabled *bool                 `json:"enabled"`
+	Name        *string               `json:"name"`
+	DisplayName *string               `json:"display_name"`
+	BaseURL     *string               `json:"base_url"`
+	APIKey      *string               `json:"api_key"`
+	Config      models.ProviderConfig `json:"config"`
+	Enabled     *bool                 `json:"enabled"`
 }
 
 // BuildProviders loads all enabled providers from DB and converts them to aibridge.Provider.
@@ -58,6 +60,16 @@ func ToAIBridgeProvider(p *models.AIProvider) (aibridge.Provider, error) {
 	case models.ProviderTypeOllama:
 		baseURL := strings.TrimRight(p.BaseURL, "/") + "/v1/"
 		return aibpkg.NewNamedOllamaProvider(p.Name, baseURL, p.APIKey), nil
+	case models.ProviderTypeAnthropic:
+		baseURL := p.BaseURL
+		if baseURL == "" {
+			baseURL = "https://api.anthropic.com/"
+		}
+		return aibridge.NewAnthropicProvider(aibridge.AnthropicConfig{
+			Name:    p.Name,
+			BaseURL: baseURL,
+			Key:     p.APIKey,
+		}, nil), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider type: %s", p.Type)
 	}
@@ -74,8 +86,10 @@ func CreateProvider(req CreateProviderRequest) (*models.AIProvider, error) {
 	if err := validateProviderName(req.Name); err != nil {
 		return nil, err
 	}
-	if req.Type != models.ProviderTypeOpenAI && req.Type != models.ProviderTypeOllama {
-		return nil, fmt.Errorf("invalid type: must be 'openai' or 'ollama'")
+	switch req.Type {
+	case models.ProviderTypeOpenAI, models.ProviderTypeOllama, models.ProviderTypeAnthropic:
+	default:
+		return nil, fmt.Errorf("invalid type: must be 'openai', 'ollama', or 'anthropic'")
 	}
 	if req.BaseURL == "" && req.Type == models.ProviderTypeOllama {
 		return nil, fmt.Errorf("base_url is required for ollama providers")
@@ -85,12 +99,13 @@ func CreateProvider(req CreateProviderRequest) (*models.AIProvider, error) {
 	}
 
 	p := &models.AIProvider{
-		Name:    req.Name,
-		Type:    req.Type,
-		BaseURL: req.BaseURL,
-		APIKey:  req.APIKey,
-		Config:  req.Config,
-		Enabled: req.Enabled,
+		Name:        req.Name,
+		DisplayName: req.DisplayName,
+		Type:        req.Type,
+		BaseURL:     req.BaseURL,
+		APIKey:      req.APIKey,
+		Config:      req.Config,
+		Enabled:     req.Enabled,
 	}
 	if err := database.DB.Create(p).Error; err != nil {
 		return nil, err
@@ -110,6 +125,9 @@ func UpdateProvider(id uuid.UUID, req UpdateProviderRequest) (*models.AIProvider
 			return nil, err
 		}
 		updates["name"] = *req.Name
+	}
+	if req.DisplayName != nil {
+		updates["display_name"] = *req.DisplayName
 	}
 	if req.BaseURL != nil {
 		updates["base_url"] = *req.BaseURL

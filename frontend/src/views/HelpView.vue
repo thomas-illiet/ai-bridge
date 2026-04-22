@@ -29,7 +29,7 @@ async function loadProviders() {
 const modelList     = ref<string[]>([])
 const modelLoading  = ref(false)
 const selectedModel = ref('')
-const defaultModels: Record<string, string> = { openai: 'gpt-4o', ollama: 'llama3.2' }
+const defaultModels: Record<string, string> = { openai: 'gpt-4o', ollama: 'llama3.2', anthropic: 'claude-sonnet-4-6' }
 
 async function loadModels() {
   if (!selectedProvider.value) return

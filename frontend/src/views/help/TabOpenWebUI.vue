@@ -3,7 +3,7 @@ import { ref } from 'vue'
 
 defineProps<{
   activeUrl: string
-  provider:  'openai' | 'ollama'
+  provider:  'openai' | 'ollama' | 'anthropic'
 }>()
 
 const copied = ref<string | null>(null)

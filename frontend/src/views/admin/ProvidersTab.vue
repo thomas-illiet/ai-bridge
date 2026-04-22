@@ -17,23 +17,24 @@ const formError = ref<string | null>(null)
 const editingId = ref<string | null>(null)
 
 const form = ref({
-  name:    '',
-  type:    'openai' as 'openai' | 'ollama',
-  base_url: '',
-  api_key: '',
-  enabled: true,
+  name:         '',
+  display_name: '',
+  type:         'openai' as 'openai' | 'ollama' | 'anthropic',
+  base_url:     '',
+  api_key:      '',
+  enabled:      true,
 })
 
 function openAdd() {
   editingId.value = null
-  form.value = { name: '', type: 'openai', base_url: '', api_key: '', enabled: true }
+  form.value = { name: '', display_name: '', type: 'openai', base_url: '', api_key: '', enabled: true }
   formError.value = null
   showForm.value = true
 }
 
 function openEdit(p: AIProvider) {
   editingId.value = p.id
-  form.value = { name: p.name, type: p.type, base_url: p.baseUrl, api_key: '', enabled: p.enabled }
+  form.value = { name: p.name, display_name: p.displayName ?? '', type: p.type, base_url: p.baseUrl, api_key: '', enabled: p.enabled }
   formError.value = null
   showForm.value = true
 }
@@ -53,16 +54,17 @@ async function submitForm() {
   saving.value = true
   try {
     if (editingId.value) {
-      const body: any = { name: form.value.name, base_url: form.value.base_url, enabled: form.value.enabled }
+      const body: any = { name: form.value.name, display_name: form.value.display_name, base_url: form.value.base_url, enabled: form.value.enabled }
       if (form.value.api_key) body.api_key = form.value.api_key
       await updateProvider(editingId.value, body)
     } else {
       await createProvider({
-        name:    form.value.name,
-        type:    form.value.type,
-        base_url: form.value.base_url,
-        api_key: form.value.api_key || undefined,
-        enabled: form.value.enabled,
+        name:         form.value.name,
+        display_name: form.value.display_name || undefined,
+        type:         form.value.type,
+        base_url:     form.value.base_url,
+        api_key:      form.value.api_key || undefined,
+        enabled:      form.value.enabled,
       })
     }
     closeForm()
@@ -232,8 +234,11 @@ onMounted(loadProviders)
           </template>
           <template v-else>
             <tr v-for="p in pagedProviders" :key="p.id">
-              <td class="mono">{{ p.name }}</td>
-              <td><span class="badge" :class="p.type === 'openai' ? 'badge-openai' : 'badge-ollama'">{{ p.type }}</span></td>
+              <td>
+                <span class="mono">{{ p.name }}</span>
+                <span v-if="p.displayName" class="display-name">{{ p.displayName }}</span>
+              </td>
+              <td><span class="badge" :class="'badge-' + p.type">{{ p.type }}</span></td>
               <td class="muted mono-sm">{{ p.baseUrl || '—' }}</td>
               <td>
                 <span v-if="p.apiKeySet" class="badge badge-active">set</span>
@@ -275,10 +280,15 @@ onMounted(loadProviders)
               <select v-model="form.type">
                 <option value="openai">OpenAI</option>
                 <option value="ollama">Ollama</option>
+                <option value="anthropic">Anthropic</option>
               </select>
             </div>
             <div class="pv-field pv-field--full">
-              <label>Base URL <span class="optional">(optional for OpenAI)</span></label>
+              <label>Display Name <span class="optional">(optional)</span></label>
+              <input v-model="form.display_name" placeholder="e.g. Claude Anthropic, OpenAI Production" @keyup.enter="submitForm" />
+            </div>
+            <div class="pv-field pv-field--full">
+              <label>Base URL <span class="optional">(optional for OpenAI &amp; Anthropic)</span></label>
               <input v-model="form.base_url" placeholder="e.g. http://ollama:11434" @keyup.enter="submitForm" />
             </div>
             <div class="pv-field pv-field--full">
@@ -347,9 +357,12 @@ onMounted(loadProviders)
 .toggle-off { background: #f1f5f9; color: #64748b; }
 .status-toggle:hover { opacity: 0.75; }
 
-.badge-openai { background: #dbeafe; color: #1d4ed8; }
-.badge-ollama { background: #f3e8ff; color: #7c3aed; }
-.badge-none   { background: #f1f5f9; color: #94a3b8; }
+.badge-openai    { background: #dbeafe; color: #1d4ed8; }
+.badge-ollama    { background: #f3e8ff; color: #7c3aed; }
+.badge-anthropic { background: #fef3c7; color: #92400e; }
+.badge-none      { background: #f1f5f9; color: #94a3b8; }
+
+.display-name { display: block; font-size: 0.75rem; color: #64748b; margin-top: 0.1rem; }
 
 .actions { display: flex; gap: 0.4rem; align-items: center; }
 

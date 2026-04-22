@@ -176,7 +176,8 @@ export const createServiceToken = (id: string, name: string, durationDays: numbe
 
 export interface ProviderInfo {
   name: string
-  type: 'openai' | 'ollama'
+  displayName: string
+  type: 'openai' | 'ollama' | 'anthropic'
 }
 
 export const getAvailableProviders = () =>
@@ -188,7 +189,8 @@ export const getModels = (provider: string) =>
 export interface AIProvider {
   id: string
   name: string
-  type: 'openai' | 'ollama'
+  displayName: string
+  type: 'openai' | 'ollama' | 'anthropic'
   baseUrl: string
   config: Record<string, unknown>
   enabled: boolean
@@ -199,7 +201,8 @@ export interface AIProvider {
 
 export interface CreateProviderBody {
   name: string
-  type: 'openai' | 'ollama'
+  display_name?: string
+  type: 'openai' | 'ollama' | 'anthropic'
   base_url: string
   api_key?: string
   config?: Record<string, unknown>
@@ -208,6 +211,7 @@ export interface CreateProviderBody {
 
 export interface UpdateProviderBody {
   name?: string
+  display_name?: string
   base_url?: string
   api_key?: string
   config?: Record<string, unknown>

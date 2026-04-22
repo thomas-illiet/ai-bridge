@@ -4,7 +4,7 @@ import { ref, computed } from 'vue'
 const props = defineProps<{
   activeUrl:   string
   activeModel: string
-  provider:    'openai' | 'ollama'
+  provider:    'openai' | 'ollama' | 'anthropic'
 }>()
 
 const curlModels = computed(() =>

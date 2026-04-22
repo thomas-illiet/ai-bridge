@@ -6,7 +6,7 @@ const props = defineProps<{ providers: ProviderCount[] }>()
 
 const total = computed(() => props.providers.reduce((s, p) => s + p.count, 0))
 
-const COLORS: Record<string, string> = { openai: '#10b981', ollama: '#6366f1' }
+const COLORS: Record<string, string> = { openai: '#10b981', ollama: '#6366f1', anthropic: '#f59e0b' }
 function color(name: string) { return COLORS[name] ?? '#94a3b8' }
 
 function fmtNum(n: number) {

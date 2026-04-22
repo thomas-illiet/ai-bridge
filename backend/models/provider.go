@@ -13,8 +13,9 @@ import (
 type ProviderType string
 
 const (
-	ProviderTypeOpenAI ProviderType = "openai"
-	ProviderTypeOllama ProviderType = "ollama"
+	ProviderTypeOpenAI    ProviderType = "openai"
+	ProviderTypeOllama    ProviderType = "ollama"
+	ProviderTypeAnthropic ProviderType = "anthropic"
 )
 
 type ProviderConfig map[string]interface{}
@@ -39,16 +40,17 @@ func (c *ProviderConfig) Scan(v interface{}) error {
 }
 
 type AIProvider struct {
-	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	Name      string         `gorm:"not null;uniqueIndex" json:"name"`
-	Type      ProviderType   `gorm:"not null" json:"type"`
-	BaseURL   string         `gorm:"not null;default:''" json:"baseUrl"`
-	APIKey    string         `gorm:"not null;default:''" json:"-"`
-	Config    ProviderConfig `gorm:"type:jsonb;default:'{}'" json:"config"`
-	Enabled   bool           `gorm:"not null;default:true" json:"enabled"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	Name        string         `gorm:"not null;uniqueIndex" json:"name"`
+	DisplayName string         `gorm:"not null;default:''" json:"displayName"`
+	Type        ProviderType   `gorm:"not null" json:"type"`
+	BaseURL     string         `gorm:"not null;default:''" json:"baseUrl"`
+	APIKey      string         `gorm:"not null;default:''" json:"-"`
+	Config      ProviderConfig `gorm:"type:jsonb;default:'{}'" json:"config"`
+	Enabled     bool           `gorm:"not null;default:true" json:"enabled"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (p *AIProvider) BeforeCreate(_ *gorm.DB) error {

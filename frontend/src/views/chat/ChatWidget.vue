@@ -21,7 +21,7 @@ async function initProviders() {
   initialized.value = true
   try {
     const res = await getAvailableProviders()
-    availableProviders.value = (res.data.providers ?? []).map(p => ({ id: p.name, label: p.name }))
+    availableProviders.value = (res.data.providers ?? []).map(p => ({ id: p.name, label: p.displayName || p.name }))
   } catch { /* leave empty */ }
   if (availableProviders.value.length > 0) {
     if (!store.provider || !availableProviders.value.find(p => p.id === store.provider)) {
@@ -39,7 +39,8 @@ async function loadModels() {
     modelList.value = res.data.models ?? []
     if (modelList.value.length > 0) store.model = modelList.value[0]
   } catch {
-    store.model = store.provider === 'openai' ? 'gpt-4o' : 'llama3.2'
+    const fallbacks: Record<string, string> = { openai: 'gpt-4o', ollama: 'llama3.2', anthropic: 'claude-sonnet-4-6' }
+    store.model = fallbacks[store.provider] ?? 'gpt-4o'
   } finally {
     modelLoading.value = false
   }
