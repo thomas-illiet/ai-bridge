@@ -114,6 +114,8 @@ function roleBadgeClass(role: string) {
 
 <template>
   <div class="tab-content">
+    <div class="card">
+    <h2 class="card-title">Users</h2>
     <div v-if="!loading && error" class="state-msg error">{{ error }}</div>
     <div v-else-if="!loading && !error && users.length === 0" class="empty-card">
       <p class="empty-title">No users found</p>
@@ -194,6 +196,7 @@ function roleBadgeClass(role: string) {
       v-model:pageSize="pageSize"
       :total="users.length"
     />
+    </div>
 
     <UserStatsModal  :user="statsUser"  @close="statsUser = null" />
     <DeleteUserModal :user="deleteUser" @deleted="onDeleted" @close="deleteUser = null" />

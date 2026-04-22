@@ -83,9 +83,11 @@ onMounted(load)
 
 <template>
   <div class="tab-content">
-    <div class="toolbar">
-      <p class="sub">{{ pendingCount }} pending request{{ pendingCount !== 1 ? 's' : '' }}.</p>
-      <div class="filters">
+    <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Access Requests</h2>
+      <div class="header-actions">
+        <p class="sub">{{ pendingCount }} pending request{{ pendingCount !== 1 ? 's' : '' }}.</p>
         <select v-model="statusFilter" class="role-select" @change="load">
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
@@ -153,6 +155,7 @@ onMounted(load)
         </template>
       </tbody>
     </table>
+    </div>
 
     <!-- Approve modal -->
     <Teleport to="body">

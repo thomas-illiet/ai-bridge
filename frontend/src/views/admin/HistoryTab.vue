@@ -73,9 +73,11 @@ onMounted(async () => {
 
 <template>
   <div class="tab-content">
-    <div class="toolbar">
-      <p class="sub">{{ total }} request{{ total !== 1 ? 's' : '' }} total.</p>
-      <div class="filters">
+    <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Request History</h2>
+      <div class="header-actions">
+        <p class="sub">{{ total }} request{{ total !== 1 ? 's' : '' }} total.</p>
         <select v-model="userId" class="role-select">
           <option value="">All users</option>
           <option v-for="u in users" :key="u.id" :value="u.id">{{ u.username }}</option>
@@ -138,6 +140,7 @@ onMounted(async () => {
     </table>
 
     <PaginationBar v-if="!loading" v-model:page="page" v-model:pageSize="pageSize" :total="total" />
+    </div>
 
     <HistoryDetailModal :detail="detail" :loading="detailLoad" @close="detail = null; detailLoad = false" />
   </div>

@@ -152,12 +152,16 @@ onMounted(loadAccounts)
 
 <template>
   <div class="tab-content">
+    <div class="card">
     <!-- Header -->
-    <div class="toolbar">
-      <p class="sub">{{ accounts.length }} service account{{ accounts.length !== 1 ? 's' : '' }}</p>
-      <button class="btn btn-primary" @click="showCreateAccountModal = true; formError = null">
-        + New Service Account
-      </button>
+    <div class="card-header">
+      <h2 class="card-title">Service Accounts</h2>
+      <div class="header-actions">
+        <p class="sub">{{ accounts.length }} service account{{ accounts.length !== 1 ? 's' : '' }}</p>
+        <button class="btn btn-primary btn-sm" @click="showCreateAccountModal = true; formError = null">
+          + New Service Account
+        </button>
+      </div>
     </div>
 
     <!-- Error -->
@@ -210,7 +214,7 @@ onMounted(loadAccounts)
     </table>
 
     <!-- Token sub-panel -->
-    <div v-if="selectedAccount" class="token-panel">
+    <div v-if="selectedAccount" class="token-panel" style="margin-top:0">
       <div class="panel-header">
         <div class="panel-title">
           <span class="panel-label">Tokens for</span>
@@ -271,6 +275,7 @@ onMounted(loadAccounts)
           </template>
         </tbody>
       </table>
+    </div>
     </div>
 
     <!-- Create Service Account Modal -->

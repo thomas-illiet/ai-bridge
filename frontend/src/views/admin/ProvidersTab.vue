@@ -343,10 +343,6 @@ onMounted(loadProviders)
 </template>
 
 <style scoped>
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-.card-header { display: flex; align-items: center; justify-content: space-between; }
-.card-title { font-size: 1rem; font-weight: 700; margin: 0; }
-.header-actions { display: flex; gap: 0.5rem; align-items: center; }
 
 .mono { font-family: monospace; font-size: 0.88rem; }
 .mono-sm { font-family: monospace; font-size: 0.8rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

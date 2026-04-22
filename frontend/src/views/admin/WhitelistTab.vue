@@ -171,8 +171,6 @@ onMounted(loadWL)
 .banner-open       { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 .banner-restricted { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 .banner-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-.card-title { font-size: 1rem; font-weight: 700; margin: 0; }
 .add-form { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; }
 .wl-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 160px; }
 .wl-field label { font-size: 0.78rem; font-weight: 600; color: #64748b; }

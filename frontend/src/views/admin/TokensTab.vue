@@ -69,9 +69,11 @@ onMounted(load)
 
 <template>
   <div class="tab-content">
-    <div class="toolbar">
-      <p class="sub">{{ total }} token{{ total !== 1 ? 's' : '' }} total.</p>
-      <div class="toolbar-right">
+    <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Tokens</h2>
+      <div class="header-actions">
+        <p class="sub">{{ total }} token{{ total !== 1 ? 's' : '' }} total.</p>
         <label class="toggle-label">
           <input type="checkbox" v-model="showInactive" />
           <span class="toggle-switch" />
@@ -144,6 +146,7 @@ onMounted(load)
     </table>
 
     <PaginationBar v-if="!loading" v-model:page="page" v-model:pageSize="pageSize" :total="total" />
+    </div>
 
     <RevokeTokenModal
       v-if="confirmToken"
