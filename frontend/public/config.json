@@ -1,0 +1,7 @@
+{
+  "apiBaseUrl": "http://localhost:8585",
+  "bridgeBaseUrl": "http://localhost:8586",
+  "oidcAuthority": "http://localhost:8180/realms/ai-bridge",
+  "oidcClientId": "ai-bridge-frontend",
+  "oidcRedirectUri": ""
+}
