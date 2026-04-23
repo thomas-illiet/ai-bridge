@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getDashboard } from '@/services/api'
+import { getDashboard, getStatus } from '@/services/api'
+import type { StatusResponse } from '@/services/api'
 import StatGrid from '@/views/dashboard/StatGrid.vue'
 import RequestsChart from '@/views/dashboard/RequestsChart.vue'
 import TokensChart from '@/views/dashboard/TokensChart.vue'
@@ -8,19 +9,21 @@ import ProviderBreakdown from '@/views/dashboard/ProviderBreakdown.vue'
 import ModelBreakdown from '@/views/dashboard/ModelBreakdown.vue'
 import TokensByModel from '@/views/dashboard/TokensByModel.vue'
 import ToolsUsed from '@/views/dashboard/ToolsUsed.vue'
+import ServiceStatus from '@/views/dashboard/ServiceStatus.vue'
 
 interface DailyCount    { date: string; count: number }
 interface DailyTokens   { date: string; total: number }
 interface ProviderCount { provider: string; count: number }
 interface ModelCount    { model: string; count: number }
+interface ModelTokens   { model: string; total: number }
+interface ToolCount     { tool: string; count: number }
 interface TokenTotals   { totalInput: number; totalOutput: number }
 interface LastRequest    { model: string; provider: string; startedAt: string }
-interface ModelTokens  { model: string; total: number }
-interface ToolCount    { tool: string; count: number }
 interface DashboardData {
   user:           string
   scope:          'user' | 'global'
   totalRequests:  number
+  activeUsers?:   number
   tokens:         TokenTotals
   daily:          DailyCount[]
   dailyTokens:    DailyTokens[]
@@ -32,6 +35,7 @@ interface DashboardData {
 }
 
 const data       = ref<DashboardData | null>(null)
+const status     = ref<StatusResponse | null>(null)
 const loading    = ref(true)
 const refreshing = ref(false)
 const error      = ref<string | null>(null)
@@ -42,11 +46,19 @@ let interval: ReturnType<typeof setInterval>
 async function fetchAll() {
   if (data.value) refreshing.value = true
   try {
-    const res = await getDashboard('user')
-    data.value = res.data
+    const [dashRes, statusRes] = await Promise.allSettled([
+      getDashboard('global'),
+      getStatus(),
+    ])
+    if (dashRes.status === 'fulfilled') data.value = dashRes.value.data
+    else error.value = 'Failed to load dashboard data'
+
+    if (statusRes.status === 'fulfilled') status.value = statusRes.value.data
+    else if (statusRes.status === 'rejected') {
+      const e = statusRes.reason as any
+      if (e?.response?.data?.services) status.value = e.response.data
+    }
     lastChecked.value = new Date()
-  } catch {
-    error.value = 'Failed to load dashboard data'
   } finally {
     loading.value    = false
     refreshing.value = false
@@ -71,8 +83,8 @@ function fillWeek<T extends { date: string }>(
   return days
 }
 
-const chartDays     = computed(() => fillWeek(data.value?.daily ?? [],       k => ({ date: k, count: 0 })))
-const chartTokens   = computed(() => fillWeek(data.value?.dailyTokens ?? [], k => ({ date: k, total: 0 })))
+const chartDays   = computed(() => fillWeek(data.value?.daily ?? [],       k => ({ date: k, count: 0 })))
+const chartTokens = computed(() => fillWeek(data.value?.dailyTokens ?? [], k => ({ date: k, total: 0 })))
 
 function formatTime(d: Date) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -80,18 +92,12 @@ function formatTime(d: Date) {
 </script>
 
 <template>
-  <div class="dashboard">
-    <div class="page-header">
-      <div>
-        <h1>My Activity</h1>
-        <p v-if="data" class="subtitle">Welcome back, <strong>{{ data.user }}</strong></p>
-      </div>
-      <div class="header-right">
-        <span v-if="lastChecked" class="last-checked">
-          <span v-if="refreshing" class="spin-icon" />
-          Last updated: {{ formatTime(lastChecked) }}
-        </span>
-      </div>
+  <div class="overview">
+    <div class="overview-toolbar">
+      <span v-if="lastChecked" class="last-checked">
+        <span v-if="refreshing" class="spin-icon" />
+        Last updated: {{ formatTime(lastChecked) }}
+      </span>
     </div>
 
     <div v-if="loading" class="skeleton-section">
@@ -113,7 +119,8 @@ function formatTime(d: Date) {
         :total-requests="data.totalRequests"
         :tokens="data.tokens"
         :provider-count="data.byProvider.length"
-        :show-active-users="false"
+        :active-users="data.activeUsers"
+        :show-active-users="true"
         :last-request="data.lastRequest"
       />
 
@@ -131,6 +138,8 @@ function formatTime(d: Date) {
         <TokensByModel :models="data.tokensByModel" />
         <ToolsUsed :tools="data.toolsUsed" />
       </div>
+
+      <ServiceStatus :status="status" :refreshing="refreshing" />
     </template>
 
     <div v-else-if="error" class="state-msg error">{{ error }}</div>
@@ -138,31 +147,19 @@ function formatTime(d: Date) {
 </template>
 
 <style scoped>
-.dashboard { display: flex; flex-direction: column; gap: 1.5rem; }
+.overview { display: flex; flex-direction: column; gap: 1.5rem; }
 
-.page-header {
+.overview-toolbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  justify-content: flex-end;
 }
-h1 { font-size: 1.75rem; font-weight: 700; margin: 0; }
-.subtitle { color: #64748b; font-size: 0.9rem; margin: 0.2rem 0 0; }
 
-.header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
-}
 .last-checked {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8rem;
   color: #94a3b8;
-  padding-top: 0.35rem;
 }
 .spin-icon {
   display: inline-block;
