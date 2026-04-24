@@ -9,14 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/thomas-illiet/ai-bridge/config"
-	"github.com/thomas-illiet/ai-bridge/database"
-	handlerAdmin "github.com/thomas-illiet/ai-bridge/handlers/admin"
-	handlerPublic "github.com/thomas-illiet/ai-bridge/handlers/public"
-	handlerUser "github.com/thomas-illiet/ai-bridge/handlers/user"
-	"github.com/thomas-illiet/ai-bridge/middleware"
-	"github.com/thomas-illiet/ai-bridge/models"
-	"github.com/thomas-illiet/ai-bridge/services"
+	"github.com/thomas-illiet/ai-bridge/internal/config"
+	"github.com/thomas-illiet/ai-bridge/internal/database"
+	handlerAdmin "github.com/thomas-illiet/ai-bridge/internal/handlers/admin"
+	handlerPublic "github.com/thomas-illiet/ai-bridge/internal/handlers/public"
+	handlerUser "github.com/thomas-illiet/ai-bridge/internal/handlers/user"
+	"github.com/thomas-illiet/ai-bridge/internal/middleware"
+	"github.com/thomas-illiet/ai-bridge/internal/models"
+	"github.com/thomas-illiet/ai-bridge/internal/services"
 )
 
 func main() {
@@ -39,16 +39,17 @@ func main() {
 		log.Fatalf("database error: %v", err)
 	}
 	if err := database.DB.AutoMigrate(
+		&models.User{},
+		&models.Provider{},
+		&models.MCPServer{},
+		&models.FirewallRule{},
 		&models.APIToken{},
+		&models.AccessRequest{},
 		&models.Interception{},
 		&models.TokenUsage{},
 		&models.UserPrompt{},
 		&models.ToolUsage{},
 		&models.ModelThought{},
-		&models.IPAllowlist{},
-		&models.User{},
-		&models.AccessRequest{},
-		&models.Provider{},
 	); err != nil {
 		log.Fatalf("auto-migrate error: %v", err)
 	}
@@ -75,7 +76,16 @@ func main() {
 
 		user := api.Group("")
 		user.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleManager))
-		api.GET("/dashboard", handlerUser.GetDashboard)
+		user.GET("/dashboard/total-requests", handlerUser.GetTotalRequests)
+		user.GET("/dashboard/tokens", handlerUser.GetTokenTotals)
+		user.GET("/dashboard/daily", handlerUser.GetDailyRequests)
+		user.GET("/dashboard/daily-tokens", handlerUser.GetDailyTokens)
+		user.GET("/dashboard/by-provider", handlerUser.GetByProvider)
+		user.GET("/dashboard/by-model", handlerUser.GetByModel)
+		user.GET("/dashboard/tokens-by-model", handlerUser.GetTokensByModel)
+		user.GET("/dashboard/tools-used", handlerUser.GetToolsUsed)
+		user.GET("/dashboard/last-request", handlerUser.GetLastRequest)
+		user.GET("/dashboard/active-users", handlerUser.GetActiveUsers)
 		api.GET("/providers", handlerUser.ListAvailableProviders)
 		api.GET("/models", handlerUser.GetModels())
 		user.POST("/tokens", handlerUser.CreateToken(cfg.TokenSecret))
@@ -91,7 +101,11 @@ func main() {
 		elevated.GET("/users", handlerAdmin.ListUsers)
 		elevated.PATCH("/users/:id", handlerAdmin.UpdateUserRole)
 		elevated.DELETE("/users/:id", handlerAdmin.DeleteUser)
-		elevated.GET("/users/:id/stats", handlerAdmin.GetUserStats)
+		elevated.GET("/users/:id/stats/total-requests", handlerAdmin.GetUserTotalRequests)
+		elevated.GET("/users/:id/stats/tokens", handlerAdmin.GetUserTokenTotals)
+		elevated.GET("/users/:id/stats/daily", handlerAdmin.GetUserDailyRequests)
+		elevated.GET("/users/:id/stats/by-provider", handlerAdmin.GetUserByProvider)
+		elevated.GET("/users/:id/stats/by-model", handlerAdmin.GetUserByModel)
 		elevated.GET("/tokens", handlerAdmin.ListTokens)
 		elevated.DELETE("/tokens/:id", handlerAdmin.RevokeToken)
 		elevated.POST("/tokens/:id/unrevoke", handlerAdmin.UnrevokeToken)
@@ -103,10 +117,12 @@ func main() {
 
 		admin := api.Group("/admin")
 		admin.Use(middleware.RequireRole(middleware.RoleAdmin))
-		admin.GET("/whitelist", handlerAdmin.ListWhitelist)
-		admin.POST("/whitelist", handlerAdmin.AddWhitelist)
-		admin.DELETE("/whitelist/:id", handlerAdmin.DeleteWhitelist)
-		admin.PATCH("/whitelist/:id", handlerAdmin.ToggleWhitelist)
+		admin.GET("/firewall", handlerAdmin.ListFirewallRules)
+		admin.POST("/firewall", handlerAdmin.AddFirewallRule(reloadPub))
+		admin.DELETE("/firewall/:id", handlerAdmin.DeleteFirewallRule(reloadPub))
+		admin.PATCH("/firewall/:id", handlerAdmin.ToggleFirewallRule(reloadPub))
+		admin.POST("/firewall/:id/move", handlerAdmin.MoveFirewallRulePriority(reloadPub))
+		admin.POST("/firewall/reload", handlerAdmin.ReloadFirewall(reloadPub))
 		admin.GET("/service-accounts", handlerAdmin.ListServiceAccounts)
 		admin.POST("/service-accounts", handlerAdmin.CreateServiceAccount)
 		admin.DELETE("/service-accounts/:id", handlerAdmin.DeleteServiceAccount)
@@ -118,6 +134,12 @@ func main() {
 		admin.PUT("/providers/:id", handlerAdmin.UpdateProvider(reloadPub))
 		admin.DELETE("/providers/:id", handlerAdmin.DeleteProvider(reloadPub))
 		admin.POST("/providers/reload", handlerAdmin.ReloadProviders(reloadPub))
+		admin.GET("/mcp-servers", handlerAdmin.ListMCPServers)
+		admin.POST("/mcp-servers", handlerAdmin.CreateMCPServer(reloadPub))
+		admin.GET("/mcp-servers/:id", handlerAdmin.GetMCPServer)
+		admin.PUT("/mcp-servers/:id", handlerAdmin.UpdateMCPServer(reloadPub))
+		admin.DELETE("/mcp-servers/:id", handlerAdmin.DeleteMCPServer(reloadPub))
+		admin.POST("/mcp-servers/reload", handlerAdmin.ReloadMCP(reloadPub))
 	}
 
 	// Background job: revoke roles that have passed their expiry date.

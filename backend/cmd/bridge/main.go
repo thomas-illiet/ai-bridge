@@ -14,14 +14,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/coder/aibridge"
-	aibpkg "github.com/thomas-illiet/ai-bridge/aibridge"
-	"github.com/thomas-illiet/ai-bridge/config"
-	"github.com/thomas-illiet/ai-bridge/database"
-	handlerPublic "github.com/thomas-illiet/ai-bridge/handlers/public"
-	"github.com/thomas-illiet/ai-bridge/middleware"
-	"github.com/thomas-illiet/ai-bridge/services"
+	aibpkg "github.com/thomas-illiet/ai-bridge/internal/aibridge"
+	"github.com/thomas-illiet/ai-bridge/internal/config"
+	"github.com/thomas-illiet/ai-bridge/internal/database"
+	handlerPublic "github.com/thomas-illiet/ai-bridge/internal/handlers/public"
+	"github.com/thomas-illiet/ai-bridge/internal/middleware"
+	"github.com/thomas-illiet/ai-bridge/internal/services"
 )
 
 func main() {
@@ -45,10 +46,18 @@ func main() {
 
 	bridgeManager := aibpkg.NewBridgeManager(ctx, recorder, logger, metrics, tracer)
 
-	if initialProviders, err := services.BuildProviders(); err != nil {
-		log.Printf("warning: could not load initial providers: %v", err)
-	} else if err := bridgeManager.Reload(initialProviders); err != nil {
-		log.Printf("warning: could not initialize bridge: %v", err)
+	{
+		initialProviders, err := services.BuildProviders()
+		if err != nil {
+			log.Printf("warning: could not load initial providers: %v", err)
+		}
+		mcpProxy, err := services.BuildMCPProxy(ctx, logger, tracer)
+		if err != nil {
+			log.Printf("warning: could not build mcp proxy: %v", err)
+		}
+		if err := bridgeManager.Reload(initialProviders, mcpProxy); err != nil {
+			log.Printf("warning: could not initialize bridge: %v", err)
+		}
 	}
 
 	redisOpts, err := redis.ParseURL(cfg.RedisURL)
@@ -57,7 +66,7 @@ func main() {
 	}
 	rdb := redis.NewClient(redisOpts)
 
-	go subscribeReload(ctx, rdb, bridgeManager)
+	go subscribeReload(ctx, rdb, bridgeManager, logger, tracer)
 
 	r := gin.Default()
 
@@ -75,7 +84,8 @@ func main() {
 	aib := r.Group("")
 	aib.Use(middleware.JWTAuth(cfg))
 	aib.Use(middleware.RequireAnyRole(middleware.RoleUser, middleware.RoleAdmin, middleware.RoleService, middleware.RoleManager))
-	aib.Use(middleware.IPWhitelist(cfg.TrustedProxies))
+	aib.Use(middleware.Firewall(cfg.TrustedProxies))
+	aib.Use(middleware.InjectClientIP(cfg.TrustedProxies))
 	aib.Use(middleware.AIBridgeActor())
 	aib.Any("/:provider/*path", gin.WrapH(bridgeManager))
 
@@ -85,7 +95,7 @@ func main() {
 	}
 }
 
-func subscribeReload(ctx context.Context, rdb *redis.Client, bm *aibpkg.BridgeManager) {
+func subscribeReload(ctx context.Context, rdb *redis.Client, bm *aibpkg.BridgeManager, logger slog.Logger, tracer trace.Tracer) {
 	sub := rdb.Subscribe(ctx, services.ReloadChannel())
 	defer sub.Close()
 
@@ -103,7 +113,12 @@ func subscribeReload(ctx context.Context, rdb *redis.Client, bm *aibpkg.BridgeMa
 				log.Printf("bridge reload: build providers: %v", err)
 				continue
 			}
-			if err := bm.Reload(providers); err != nil {
+			mcpProxy, err := services.BuildMCPProxy(ctx, logger, tracer)
+			if err != nil {
+				log.Printf("bridge reload: build mcp proxy: %v", err)
+			}
+			middleware.InvalidateFirewallCache()
+			if err := bm.Reload(providers, mcpProxy); err != nil {
 				log.Printf("bridge reload: %v", err)
 			} else {
 				log.Printf("bridge reloaded: %d providers active", len(providers))

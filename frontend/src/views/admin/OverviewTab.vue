@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getDashboard, getStatus } from '@/services/api'
+import {
+  getDashboardTotalRequests,
+  getDashboardTokenTotals,
+  getDashboardDaily,
+  getDashboardDailyTokens,
+  getDashboardByProvider,
+  getDashboardByModel,
+  getDashboardTokensByModel,
+  getDashboardToolsUsed,
+  getDashboardLastRequest,
+  getDashboardActiveUsers,
+  getStatus,
+} from '@/services/api'
 import type { StatusResponse } from '@/services/api'
+import { sleep } from '@/utils/format'
 import StatGrid from '@/views/dashboard/StatGrid.vue'
 import RequestsChart from '@/views/dashboard/RequestsChart.vue'
 import TokensChart from '@/views/dashboard/TokensChart.vue'
@@ -19,50 +32,94 @@ interface ModelTokens   { model: string; total: number }
 interface ToolCount     { tool: string; count: number }
 interface TokenTotals   { totalInput: number; totalOutput: number }
 interface LastRequest    { model: string; provider: string; startedAt: string }
-interface DashboardData {
-  user:           string
-  scope:          'user' | 'global'
-  totalRequests:  number
-  activeUsers?:   number
-  tokens:         TokenTotals
-  daily:          DailyCount[]
-  dailyTokens:    DailyTokens[]
-  byProvider:     ProviderCount[]
-  byModel:        ModelCount[]
-  tokensByModel:  ModelTokens[]
-  toolsUsed:      ToolCount[]
-  lastRequest:    LastRequest | null
-}
 
-const data       = ref<DashboardData | null>(null)
-const status     = ref<StatusResponse | null>(null)
-const loading    = ref(true)
-const refreshing = ref(false)
-const error      = ref<string | null>(null)
-const lastChecked = ref<Date | null>(null)
+const totalRequests   = ref(0)
+const activeUsers     = ref<number | undefined>(undefined)
+const tokens          = ref<TokenTotals>({ totalInput: 0, totalOutput: 0 })
+const daily           = ref<DailyCount[]>([])
+const dailyTokens     = ref<DailyTokens[]>([])
+const byProvider      = ref<ProviderCount[]>([])
+const byModel         = ref<ModelCount[]>([])
+const tokensByModel   = ref<ModelTokens[]>([])
+const toolsUsed       = ref<ToolCount[]>([])
+const lastRequest     = ref<LastRequest | null>(null)
+const status          = ref<StatusResponse | null>(null)
+
+const loadingRequests      = ref(true)
+const loadingTokens        = ref(true)
+const loadingDaily         = ref(true)
+const loadingDailyTokens   = ref(true)
+const loadingProviders     = ref(true)
+const loadingModels        = ref(true)
+const loadingTokensByModel = ref(true)
+const loadingTools         = ref(true)
+const loadingLastRequest   = ref(true)
+const loadingActiveUsers   = ref(true)
+const loadingStatus        = ref(true)
+
+const refreshing   = ref(false)
+const lastChecked  = ref<Date | null>(null)
 
 let interval: ReturnType<typeof setInterval>
 
-async function fetchAll() {
-  if (data.value) refreshing.value = true
-  try {
-    const [dashRes, statusRes] = await Promise.allSettled([
-      getDashboard('global'),
-      getStatus(),
-    ])
-    if (dashRes.status === 'fulfilled') data.value = dashRes.value.data
-    else error.value = 'Failed to load dashboard data'
+const MIN_SKELETON_MS = 400
 
-    if (statusRes.status === 'fulfilled') status.value = statusRes.value.data
-    else if (statusRes.status === 'rejected') {
-      const e = statusRes.reason as any
+function fetchAll() {
+  const isRefresh = lastChecked.value !== null
+  if (isRefresh) refreshing.value = true
+  const delay = isRefresh ? 0 : MIN_SKELETON_MS
+
+  Promise.all([getDashboardTotalRequests('global'), sleep(delay)])
+    .then(([r]) => { totalRequests.value = r.data.totalRequests })
+    .finally(() => { loadingRequests.value = false })
+
+  Promise.all([getDashboardTokenTotals('global'), sleep(delay)])
+    .then(([r]) => { tokens.value = r.data })
+    .finally(() => { loadingTokens.value = false })
+
+  Promise.all([getDashboardDaily('global'), sleep(delay)])
+    .then(([r]) => { daily.value = r.data.daily })
+    .finally(() => { loadingDaily.value = false })
+
+  Promise.all([getDashboardDailyTokens('global'), sleep(delay)])
+    .then(([r]) => { dailyTokens.value = r.data.dailyTokens })
+    .finally(() => { loadingDailyTokens.value = false })
+
+  Promise.all([getDashboardByProvider('global'), sleep(delay)])
+    .then(([r]) => { byProvider.value = r.data.byProvider })
+    .finally(() => { loadingProviders.value = false })
+
+  Promise.all([getDashboardByModel('global'), sleep(delay)])
+    .then(([r]) => { byModel.value = r.data.byModel })
+    .finally(() => { loadingModels.value = false })
+
+  Promise.all([getDashboardTokensByModel('global'), sleep(delay)])
+    .then(([r]) => { tokensByModel.value = r.data.tokensByModel })
+    .finally(() => { loadingTokensByModel.value = false })
+
+  Promise.all([getDashboardToolsUsed('global'), sleep(delay)])
+    .then(([r]) => { toolsUsed.value = r.data.toolsUsed })
+    .finally(() => { loadingTools.value = false })
+
+  Promise.all([getDashboardLastRequest('global'), sleep(delay)])
+    .then(([r]) => { lastRequest.value = r.data.lastRequest })
+    .finally(() => { loadingLastRequest.value = false })
+
+  Promise.all([getDashboardActiveUsers(), sleep(delay)])
+    .then(([r]) => { activeUsers.value = r.data.activeUsers })
+    .catch(() => { activeUsers.value = undefined })
+    .finally(() => { loadingActiveUsers.value = false })
+
+  Promise.all([getStatus(), sleep(delay)])
+    .then(([r]) => { status.value = r.data })
+    .catch(e => {
       if (e?.response?.data?.services) status.value = e.response.data
-    }
-    lastChecked.value = new Date()
-  } finally {
-    loading.value    = false
-    refreshing.value = false
-  }
+    })
+    .finally(() => {
+      loadingStatus.value = false
+      lastChecked.value = new Date()
+      refreshing.value = false
+    })
 }
 
 onMounted(() => { fetchAll(); interval = setInterval(fetchAll, 30_000) })
@@ -83,8 +140,8 @@ function fillWeek<T extends { date: string }>(
   return days
 }
 
-const chartDays   = computed(() => fillWeek(data.value?.daily ?? [],       k => ({ date: k, count: 0 })))
-const chartTokens = computed(() => fillWeek(data.value?.dailyTokens ?? [], k => ({ date: k, total: 0 })))
+const chartDays   = computed(() => fillWeek(daily.value,       k => ({ date: k, count: 0 })))
+const chartTokens = computed(() => fillWeek(dailyTokens.value, k => ({ date: k, total: 0 })))
 
 function formatTime(d: Date) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -100,49 +157,36 @@ function formatTime(d: Date) {
       </span>
     </div>
 
-    <div v-if="loading" class="skeleton-section">
-      <div class="skeleton-grid-5">
-        <div v-for="i in 5" :key="i" class="skeleton-card tall" />
-      </div>
-      <div class="skeleton-grid-2">
-        <div class="skeleton-card chart" />
-        <div class="skeleton-card chart" />
-      </div>
-      <div class="skeleton-grid-2">
-        <div class="skeleton-card chart" />
-        <div class="skeleton-card chart" />
-      </div>
+    <StatGrid
+      :total-requests="totalRequests"
+      :tokens="tokens"
+      :provider-count="byProvider.length"
+      :active-users="activeUsers"
+      :show-active-users="true"
+      :last-request="lastRequest"
+      :loading-requests="loadingRequests"
+      :loading-tokens="loadingTokens"
+      :loading-providers="loadingProviders"
+      :loading-active-users="loadingActiveUsers"
+      :loading-last-request="loadingLastRequest"
+    />
+
+    <div class="charts-row">
+      <RequestsChart :days="chartDays" :loading="loadingDaily" />
+      <TokensChart :days="chartTokens" :loading="loadingDailyTokens" />
     </div>
 
-    <template v-else-if="data">
-      <StatGrid
-        :total-requests="data.totalRequests"
-        :tokens="data.tokens"
-        :provider-count="data.byProvider.length"
-        :active-users="data.activeUsers"
-        :show-active-users="true"
-        :last-request="data.lastRequest"
-      />
+    <div class="charts-row">
+      <ProviderBreakdown :providers="byProvider" :loading="loadingProviders" />
+      <ModelBreakdown :models="byModel" :loading="loadingModels" />
+    </div>
 
-      <div class="charts-row">
-        <RequestsChart :days="chartDays" />
-        <TokensChart :days="chartTokens" />
-      </div>
+    <div class="charts-row">
+      <TokensByModel :models="tokensByModel" :loading="loadingTokensByModel" />
+      <ToolsUsed :tools="toolsUsed" :loading="loadingTools" />
+    </div>
 
-      <div class="charts-row">
-        <ProviderBreakdown :providers="data.byProvider" />
-        <ModelBreakdown :models="data.byModel" />
-      </div>
-
-      <div class="charts-row">
-        <TokensByModel :models="data.tokensByModel" />
-        <ToolsUsed :tools="data.toolsUsed" />
-      </div>
-
-      <ServiceStatus :status="status" :refreshing="refreshing" />
-    </template>
-
-    <div v-else-if="error" class="state-msg error">{{ error }}</div>
+    <ServiceStatus :status="status" :refreshing="refreshing" :loading="loadingStatus" />
   </div>
 </template>
 
@@ -171,29 +215,10 @@ function formatTime(d: Date) {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.skeleton-section { display: flex; flex-direction: column; gap: 1rem; }
-.skeleton-grid-5 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
-.skeleton-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.skeleton-card {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-  border-radius: 10px;
-}
-.skeleton-card.tall  { height: 88px; }
-.skeleton-card.chart { height: 220px; }
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 .charts-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
-
-.state-msg { color: #64748b; }
-.state-msg.error { color: #ef4444; }
 </style>

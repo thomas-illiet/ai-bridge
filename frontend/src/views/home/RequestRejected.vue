@@ -40,6 +40,7 @@ function handleSubmit() {
       />
       <p v-if="error" class="form-error">{{ error }}</p>
       <button type="submit" class="btn btn-primary" :disabled="submitting || !reason.trim()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         {{ submitting ? 'Submitting…' : 'Re-submit Request' }}
       </button>
     </form>

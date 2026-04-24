@@ -1,3 +1,5 @@
+export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }

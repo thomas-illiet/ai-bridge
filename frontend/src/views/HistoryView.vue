@@ -157,7 +157,7 @@ onMounted(() => {
             <td class="col-center">{{ fmtNum(row.inputTokens) }}</td>
             <td class="col-center">{{ fmtNum(row.outputTokens) }}</td>
             <td class="col-center">
-              <button class="btn-view" @click="openDetail(row.id)">View</button>
+              <button class="btn-view" @click="openDetail(row.id)"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button>
             </td>
           </tr>
         </template>

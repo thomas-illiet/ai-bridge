@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { listUsers, updateUserRole } from '@/services/api'
 import { formatDate, fmtNum } from '@/utils/format'
@@ -38,7 +38,7 @@ function toggleSort(col: string) {
 async function loadUsers() {
   await withLoad(async () => {
     try {
-      const res = await listUsers(sortBy.value, sortDir.value)
+      const res = await listUsers(sortBy.value, sortDir.value, search.value, includeService.value)
       users.value = res.data.users ?? []
     } catch { error.value = 'Failed to load users' }
   })
@@ -81,6 +81,17 @@ function isExpired(iso: string | null): boolean {
   return !!iso && new Date(iso) < new Date()
 }
 
+// ── search + filters ──────────────────────────────────────────────────────
+const search         = ref('')
+const includeService = ref(false)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  page.value = 1
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadUsers(), 300)
+})
+watch(includeService, () => { page.value = 1; loadUsers() })
+
 // ── pagination ────────────────────────────────────────────────────────────
 const page     = ref(1)
 const pageSize = ref(10)
@@ -113,9 +124,23 @@ function roleBadgeClass(role: string) {
 </script>
 
 <template>
+  <Teleport defer to="#admin-search-portal">
+    <div class="portal-controls">
+      <label class="toggle-label">
+        <input type="checkbox" v-model="includeService" />
+        <span class="toggle-switch" />
+        Service accounts
+      </label>
+      <div class="portal-search-wrap">
+        <svg class="portal-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" placeholder="Search by username or email…" class="portal-input" />
+      </div>
+    </div>
+  </Teleport>
+
   <div class="tab-content">
     <div class="card">
-    <h2 class="card-title">Users</h2>
+    <h2 class="card-title">Users <span class="title-count">{{ users.length }}</span></h2>
     <div v-if="!loading && error" class="state-msg error">{{ error }}</div>
     <div v-else-if="!loading && !error && users.length === 0" class="empty-card">
       <p class="empty-title">No users found</p>
@@ -224,8 +249,12 @@ function roleBadgeClass(role: string) {
           </div>
 
           <div class="modal-actions">
-            <button class="btn-cancel" @click="editUser = null">Cancel</button>
+            <button class="btn-cancel" @click="editUser = null">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
             <button class="btn-primary" :disabled="saving" @click="saveEdit">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               {{ saving ? 'Saving…' : 'Save' }}
             </button>
           </div>

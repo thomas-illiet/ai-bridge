@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { getUserStats } from '@/services/api'
+import {
+  getUserTotalRequests,
+  getUserTokenTotals,
+  getUserDailyRequests,
+  getUserByProvider,
+  getUserByModel,
+} from '@/services/api'
 import { fmtNum } from '@/utils/format'
 
 interface RegisteredUser { id: string; username: string; role: string }
@@ -22,8 +28,21 @@ watch(() => props.user, async (u) => {
   if (!u) return
   stats.value = null; error.value = null; loading.value = true
   try {
-    const res = await getUserStats(u.id)
-    stats.value = res.data
+    const [reqRes, tokRes, dailyRes, provRes, modelRes] = await Promise.all([
+      getUserTotalRequests(u.id),
+      getUserTokenTotals(u.id),
+      getUserDailyRequests(u.id),
+      getUserByProvider(u.id),
+      getUserByModel(u.id),
+    ])
+    stats.value = {
+      totalRequests: reqRes.data.totalRequests,
+      totalInput:    tokRes.data.totalInput,
+      totalOutput:   tokRes.data.totalOutput,
+      daily:         dailyRes.data.daily,
+      byProvider:    provRes.data.byProvider,
+      byModel:       modelRes.data.byModel,
+    }
   } catch { error.value = 'Failed to load stats' }
   finally  { loading.value = false }
 }, { immediate: true })

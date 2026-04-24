@@ -8,6 +8,11 @@ defineProps<{
   activeUsers?: number
   showActiveUsers: boolean
   lastRequest: LastRequest | null
+  loadingRequests?: boolean
+  loadingTokens?: boolean
+  loadingProviders?: boolean
+  loadingActiveUsers?: boolean
+  loadingLastRequest?: boolean
 }>()
 
 function fmtNum(n: number) {
@@ -31,25 +36,35 @@ function relativeDate(iso: string): string {
   <div class="stat-grid">
     <div class="stat-card">
       <span class="stat-label">Total Requests</span>
-      <span class="stat-value">{{ fmtNum(totalRequests) }}</span>
+      <span v-if="loadingRequests" class="stat-skeleton" />
+      <span v-else class="stat-value">{{ fmtNum(totalRequests) }}</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Input Tokens</span>
-      <span class="stat-value">{{ fmtNum(tokens.totalInput) }}</span>
+      <span v-if="loadingTokens" class="stat-skeleton" />
+      <span v-else class="stat-value">{{ fmtNum(tokens.totalInput) }}</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Output Tokens</span>
-      <span class="stat-value">{{ fmtNum(tokens.totalOutput) }}</span>
+      <span v-if="loadingTokens" class="stat-skeleton" />
+      <span v-else class="stat-value">{{ fmtNum(tokens.totalOutput) }}</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Active Providers</span>
-      <span class="stat-value">{{ providerCount }}</span>
+      <span v-if="loadingProviders" class="stat-skeleton" />
+      <span v-else class="stat-value">{{ providerCount }}</span>
     </div>
     <div class="stat-card" v-if="showActiveUsers">
       <span class="stat-label">Active Users</span>
-      <span class="stat-value">{{ fmtNum(activeUsers ?? 0) }}</span>
+      <span v-if="loadingActiveUsers" class="stat-skeleton" />
+      <span v-else class="stat-value">{{ fmtNum(activeUsers ?? 0) }}</span>
     </div>
-    <div class="stat-card stat-card--last" v-if="lastRequest">
+    <div class="stat-card stat-card--last" v-if="loadingLastRequest">
+      <span class="stat-label">Last Request</span>
+      <span class="stat-skeleton" style="margin-top: 0.3rem" />
+      <span class="stat-skeleton stat-skeleton--sm" style="margin-top: 0.4rem" />
+    </div>
+    <div class="stat-card stat-card--last" v-else-if="lastRequest">
       <span class="stat-label">Last Request</span>
       <span class="last-model">{{ lastRequest.model }}</span>
       <div class="last-meta">
@@ -81,6 +96,20 @@ function relativeDate(iso: string): string {
 }
 .stat-label { font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
 .stat-value { font-size: 1.9rem; font-weight: 700; color: #0f172a; line-height: 1; }
+
+.stat-skeleton {
+  height: 2rem;
+  width: 70%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.stat-skeleton--sm { height: 1rem; width: 50%; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 .stat-card--last { gap: 0.4rem; }
 .last-model { font-size: 0.95rem; font-weight: 700; color: #0f172a; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -35,8 +35,18 @@ api.interceptors.response.use(
 )
 
 export const getMe = () => api.get('/me')
-export const getDashboard = (scope: 'user' | 'global' = 'user') =>
-  api.get('/dashboard', scope === 'global' ? { params: { scope: 'global' } } : {})
+
+const dashboardParams = (scope: 'user' | 'global') => scope === 'global' ? { params: { scope: 'global' } } : {}
+export const getDashboardTotalRequests = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/total-requests', dashboardParams(scope))
+export const getDashboardTokenTotals   = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/tokens', dashboardParams(scope))
+export const getDashboardDaily         = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/daily', dashboardParams(scope))
+export const getDashboardDailyTokens   = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/daily-tokens', dashboardParams(scope))
+export const getDashboardByProvider    = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/by-provider', dashboardParams(scope))
+export const getDashboardByModel       = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/by-model', dashboardParams(scope))
+export const getDashboardTokensByModel = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/tokens-by-model', dashboardParams(scope))
+export const getDashboardToolsUsed     = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/tools-used', dashboardParams(scope))
+export const getDashboardLastRequest   = (scope: 'user' | 'global' = 'user') => api.get('/dashboard/last-request', dashboardParams(scope))
+export const getDashboardActiveUsers   = () => api.get('/dashboard/active-users', { params: { scope: 'global' } })
 
 export interface ClientToken {
   id: string
@@ -94,12 +104,16 @@ export const patchToken = (id: string, name: string, description: string) =>
   api.patch<{ token: ClientToken }>(`/tokens/${id}`, { name, description })
 export const revokeToken = (id: string) => api.delete(`/tokens/${id}`)
 
-export const listUsers = (sortBy = 'created_at', sortDir = 'asc') =>
-  api.get('/admin/users', { params: { sort_by: sortBy, sort_dir: sortDir } })
+export const listUsers = (sortBy = 'created_at', sortDir = 'asc', search = '', includeService = false) =>
+  api.get('/admin/users', { params: { sort_by: sortBy, sort_dir: sortDir, ...(search ? { search } : {}), ...(includeService ? { include_service: 'true' } : {}) } })
 export const updateUserRole = (id: string, role: string, expiresAt?: string) =>
   api.patch(`/admin/users/${id}`, { role, expiresAt: expiresAt ?? '' })
 export const deleteUser = (id: string) => api.delete(`/admin/users/${id}`)
-export const getUserStats = (id: string) => api.get(`/admin/users/${id}/stats`)
+export const getUserTotalRequests = (id: string) => api.get(`/admin/users/${id}/stats/total-requests`)
+export const getUserTokenTotals   = (id: string) => api.get(`/admin/users/${id}/stats/tokens`)
+export const getUserDailyRequests = (id: string) => api.get(`/admin/users/${id}/stats/daily`)
+export const getUserByProvider    = (id: string) => api.get(`/admin/users/${id}/stats/by-provider`)
+export const getUserByModel       = (id: string) => api.get(`/admin/users/${id}/stats/by-model`)
 
 export interface InterceptionRow {
   id: string
@@ -108,6 +122,7 @@ export interface InterceptionRow {
   provider: string
   providerType: string
   model: string
+  clientIp: string
   startedAt: string
   endedAt: string | null
   inputTokens: number
@@ -155,6 +170,10 @@ export interface ServiceAccount {
   role: 'service'
   createdAt: string
   updatedAt: string
+  tokenCount: number
+  totalRequests: number
+  totalInput: number
+  totalOutput: number
 }
 
 export interface CreateServiceTokenResponse {
@@ -162,8 +181,8 @@ export interface CreateServiceTokenResponse {
   rawToken: string
 }
 
-export const listServiceAccounts = (sortBy = 'created_at', sortDir = 'desc') =>
-  api.get<{ serviceAccounts: ServiceAccount[] }>('/admin/service-accounts', { params: { sort_by: sortBy, sort_dir: sortDir } })
+export const listServiceAccounts = (sortBy = 'created_at', sortDir = 'desc', search = '') =>
+  api.get<{ serviceAccounts: ServiceAccount[] }>('/admin/service-accounts', { params: { sort_by: sortBy, sort_dir: sortDir, ...(search ? { search } : {}) } })
 export const createServiceAccount = (username: string, description: string) =>
   api.post<ServiceAccount>('/admin/service-accounts', { username, description })
 export const deleteServiceAccount = (id: string) =>
@@ -219,8 +238,8 @@ export interface UpdateProviderBody {
   enabled?: boolean
 }
 
-export const listProviders = () =>
-  api.get<{ providers: AIProvider[] }>('/admin/providers')
+export const listProviders = (search = '') =>
+  api.get<{ providers: AIProvider[] }>('/admin/providers', search ? { params: { search } } : {})
 export const createProvider = (body: CreateProviderBody) =>
   api.post<{ provider: AIProvider }>('/admin/providers', body)
 export const getProvider = (id: string) =>
@@ -232,11 +251,68 @@ export const deleteProvider = (id: string) =>
 export const reloadProviders = () =>
   api.post('/admin/providers/reload')
 
-export const listWhitelist = (sortBy = 'created_at', sortDir = 'desc') =>
-  api.get('/admin/whitelist', { params: { sort_by: sortBy, sort_dir: sortDir } })
-export const addWhitelist = (cidr: string, description: string) => api.post('/admin/whitelist', { cidr, description })
-export const deleteWhitelist = (id: string) => api.delete(`/admin/whitelist/${id}`)
-export const toggleWhitelist = (id: string, enabled: boolean) => api.patch(`/admin/whitelist/${id}`, { enabled })
+export interface MCPServer {
+  id: string
+  name: string
+  displayName: string
+  url: string
+  headers: Record<string, string>
+  allowPattern: string
+  denyPattern: string
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateMCPServerBody {
+  name: string
+  display_name?: string
+  url: string
+  headers?: Record<string, string>
+  allow_pattern?: string
+  deny_pattern?: string
+  enabled: boolean
+}
+
+export interface UpdateMCPServerBody {
+  display_name?: string
+  url?: string
+  headers?: Record<string, string>
+  allow_pattern?: string
+  deny_pattern?: string
+  enabled?: boolean
+}
+
+export const listMCPServers = (search = '') =>
+  api.get<{ mcp_servers: MCPServer[] }>('/admin/mcp-servers', search ? { params: { search } } : {})
+export const getMCPServer = (id: string) =>
+  api.get<{ mcp_server: MCPServer }>(`/admin/mcp-servers/${id}`)
+export const createMCPServer = (body: CreateMCPServerBody) =>
+  api.post<{ mcp_server: MCPServer }>('/admin/mcp-servers', body)
+export const updateMCPServer = (id: string, body: UpdateMCPServerBody) =>
+  api.put<{ mcp_server: MCPServer }>(`/admin/mcp-servers/${id}`, body)
+export const deleteMCPServer = (id: string) =>
+  api.delete(`/admin/mcp-servers/${id}`)
+export const reloadMCP = () =>
+  api.post('/admin/mcp-servers/reload')
+
+export interface FirewallRule {
+  id: string; cidr: string; description: string
+  action: 'allow' | 'deny'; priority: number
+  enabled: boolean; createdAt: string
+}
+
+export const reloadFirewall = () =>
+  api.post('/admin/firewall/reload')
+
+export const listFirewallRules = (sortBy = 'priority', sortDir = 'asc', search = '') =>
+  api.get<{ entries: FirewallRule[] }>('/admin/firewall', { params: { sort_by: sortBy, sort_dir: sortDir, ...(search ? { search } : {}) } })
+export const addFirewallRule = (cidr: string, description: string, action: 'allow' | 'deny', priority: number) =>
+  api.post<FirewallRule>('/admin/firewall', { cidr, description, action, priority })
+export const deleteFirewallRule = (id: string) => api.delete(`/admin/firewall/${id}`)
+export const toggleFirewallRule = (id: string, enabled: boolean) => api.patch(`/admin/firewall/${id}`, { enabled })
+export const moveFirewallRulePriority = (id: string, direction: 'up' | 'down', orderedIds: string[]) =>
+  api.post(`/admin/firewall/${id}/move`, { direction, ordered_ids: orderedIds })
 
 export interface AccessRequest {
   id: string
@@ -255,9 +331,9 @@ export const createAccessRequest = (reason: string) =>
 export const getMyAccessRequest = () =>
   api.get<AccessRequest | null>('/access-requests/me')
 
-export const adminListAccessRequests = (status?: string, sortBy = 'created_at', sortDir = 'desc') =>
+export const adminListAccessRequests = (status?: string, sortBy = 'created_at', sortDir = 'desc', search = '') =>
   api.get<{ requests: AccessRequest[]; pendingCount: number }>('/admin/access-requests', {
-    params: { sort_by: sortBy, sort_dir: sortDir, ...(status ? { status } : {}) }
+    params: { sort_by: sortBy, sort_dir: sortDir, ...(status ? { status } : {}), ...(search ? { search } : {}) }
   })
 export const adminApproveRequest = (id: string, role: string, expiresAt?: string) =>
   api.post<AccessRequest>(`/admin/access-requests/${id}/approve`, { role, expiresAt })

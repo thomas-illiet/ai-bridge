@@ -17,6 +17,7 @@ const page       = ref(1)
 const pageSize   = ref(10)
 const search     = ref('')
 const userId     = ref('')
+const error      = ref<string | null>(null)
 const { loading, withLoad } = useMinLoad(300, true)
 const users      = ref<UserOption[]>([])
 const detail     = ref<InterceptionDetail | null>(null)
@@ -49,10 +50,15 @@ watch(page, load)
 watch(pageSize, () => { page.value = 1; load() })
 
 async function load() {
+  error.value = null
   await withLoad(async () => {
-    const res = await adminGetHistory(page.value, pageSize.value, search.value, userId.value, sortBy.value, sortDir.value)
-    rows.value  = res.data.interceptions
-    total.value = res.data.total
+    try {
+      const res = await adminGetHistory(page.value, pageSize.value, search.value, userId.value, sortBy.value, sortDir.value)
+      rows.value  = res.data.interceptions
+      total.value = res.data.total
+    } catch (e: any) {
+      error.value = e?.response?.data?.error ?? 'Failed to load history'
+    }
   })
 }
 
@@ -65,28 +71,44 @@ async function openDetail(id: string) {
 }
 
 onMounted(async () => {
-  const res = await listUsers()
-  users.value = res.data.users ?? []
+  try {
+    const res = await listUsers()
+    users.value = res.data.users ?? []
+  } catch { /* dropdown won't be populated but page still works */ }
   load()
 })
 </script>
 
 <template>
+  <Teleport defer to="#admin-search-portal">
+    <div class="portal-controls">
+      <select v-model="userId" class="portal-select">
+        <option value="">All users</option>
+        <option v-for="u in users" :key="u.id" :value="u.id">{{ u.username }}</option>
+      </select>
+      <div class="portal-search-wrap">
+        <svg class="portal-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" placeholder="Search model or provider…" class="portal-input" />
+      </div>
+    </div>
+  </Teleport>
+
   <div class="tab-content">
     <div class="card">
     <div class="card-header">
-      <h2 class="card-title">Request History</h2>
-      <div class="header-actions">
-        <p class="sub">{{ total }} request{{ total !== 1 ? 's' : '' }} total.</p>
-        <select v-model="userId" class="role-select">
-          <option value="">All users</option>
-          <option v-for="u in users" :key="u.id" :value="u.id">{{ u.username }}</option>
-        </select>
-        <input v-model="search" type="text" placeholder="Search model or provider…" class="search-input" />
-      </div>
+      <h2 class="card-title">Request History <span class="title-count">{{ total }}</span></h2>
     </div>
 
-    <div v-if="!loading && rows.length === 0" class="empty-card">
+    <div v-if="!loading && error" class="empty-card empty-card--error">
+      <div class="empty-icon empty-icon--error">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <p class="empty-title">Failed to load history</p>
+      <p class="empty-sub">{{ error }}</p>
+    </div>
+    <div v-else-if="!loading && rows.length === 0" class="empty-card">
       <div class="empty-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -106,6 +128,7 @@ onMounted(async () => {
           <th class="col-center sortable" :class="{ active: sortBy === 'inputTokens' }" @click="toggleSort('inputTokens')">Input <span class="sort-icon">{{ sortIcon('inputTokens') }}</span></th>
           <th class="col-center sortable" :class="{ active: sortBy === 'outputTokens' }" @click="toggleSort('outputTokens')">Output <span class="sort-icon">{{ sortIcon('outputTokens') }}</span></th>
           <th class="col-center sortable" :class="{ active: sortBy === 'username' }" @click="toggleSort('username')">User <span class="sort-icon">{{ sortIcon('username') }}</span></th>
+          <th class="col-center">IP</th>
           <th class="col-center">Actions</th>
         </tr>
       </thead>
@@ -119,6 +142,7 @@ onMounted(async () => {
             <td class="col-center"><div class="skeleton-bar skeleton-bar--xs" style="margin:auto" /></td>
             <td class="col-center"><div class="skeleton-bar skeleton-bar--xs" style="margin:auto" /></td>
             <td class="col-center"><div class="skeleton-bar skeleton-bar--pill" style="margin:auto" /></td>
+            <td class="col-center"><div class="skeleton-bar skeleton-bar--md" style="margin:auto" /></td>
             <td class="col-center"><div class="skeleton-bar skeleton-bar--btn" style="margin:auto" /></td>
           </tr>
         </template>
@@ -133,7 +157,8 @@ onMounted(async () => {
             <td class="col-center num">{{ fmtNum(row.inputTokens) }}</td>
             <td class="col-center num">{{ fmtNum(row.outputTokens) }}</td>
             <td class="col-center"><span class="user-pill">{{ row.username }}</span></td>
-            <td class="col-center"><button class="btn-view" @click="openDetail(row.id)">View</button></td>
+            <td class="col-center ip-cell"><span class="ip-text">{{ row.clientIp || '—' }}</span></td>
+            <td class="col-center"><button class="btn-view" @click="openDetail(row.id)"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View</button></td>
           </tr>
         </template>
       </tbody>
@@ -147,6 +172,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* model-cell max-width override for narrower admin layout */
 .model-cell { max-width: 200px; }
+.ip-cell { white-space: nowrap; }
+.ip-text { font-family: monospace; font-size: 0.8rem; color: #475569; }
 </style>

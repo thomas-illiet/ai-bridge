@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { StatusResponse, ServiceStatus } from '@/services/api'
 
-defineProps<{ status: StatusResponse | null; refreshing: boolean }>()
+defineProps<{ status: StatusResponse | null; refreshing: boolean; loading?: boolean }>()
 
 const SERVICE_LABELS: Record<string, string> = {
   database: 'PostgreSQL',
@@ -50,7 +50,10 @@ function svcModelCount(s: ServiceStatus) {
       </span>
     </div>
 
-    <div v-if="status" class="service-grid">
+    <div v-if="loading" class="service-grid">
+      <div v-for="i in 4" :key="i" class="service-skeleton" />
+    </div>
+    <div v-else-if="status" class="service-grid">
       <div
         v-for="svc in status.services"
         :key="svc.name"
@@ -157,4 +160,18 @@ function svcModelCount(s: ServiceStatus) {
 .meta-error { font-size: 0.72rem; color: #ef4444; word-break: break-word; }
 
 .muted { color: #94a3b8; font-size: 0.85rem; }
+
+.service-skeleton {
+  height: 88px; border-radius: 10px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.service-skeleton:nth-child(2) { animation-delay: 0.1s; }
+.service-skeleton:nth-child(3) { animation-delay: 0.2s; }
+.service-skeleton:nth-child(4) { animation-delay: 0.3s; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

@@ -68,19 +68,24 @@ onMounted(load)
 </script>
 
 <template>
+  <Teleport defer to="#admin-search-portal">
+    <div class="portal-controls">
+      <label class="toggle-label">
+        <input type="checkbox" v-model="showInactive" />
+        <span class="toggle-switch" />
+        Show inactive
+      </label>
+      <div class="portal-search-wrap">
+        <svg class="portal-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" placeholder="Search by name or user…" class="portal-input" />
+      </div>
+    </div>
+  </Teleport>
+
   <div class="tab-content">
     <div class="card">
     <div class="card-header">
-      <h2 class="card-title">Tokens</h2>
-      <div class="header-actions">
-        <p class="sub">{{ total }} token{{ total !== 1 ? 's' : '' }} total.</p>
-        <label class="toggle-label">
-          <input type="checkbox" v-model="showInactive" />
-          <span class="toggle-switch" />
-          Show inactive
-        </label>
-        <input v-model="search" type="text" placeholder="Search by name or user…" class="search-input" />
-      </div>
+      <h2 class="card-title">Tokens <span class="title-count">{{ total }}</span></h2>
     </div>
 
     <div v-if="!loading && tokens.length === 0" class="empty-card">
@@ -131,13 +136,19 @@ onMounted(load)
                 class="btn btn-sm btn-danger"
                 :disabled="actioningId === token.id"
                 @click="openConfirm(token, 'revoke')"
-              >{{ actioningId === token.id ? 'Revoking…' : 'Revoke' }}</button>
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                {{ actioningId === token.id ? 'Revoking…' : 'Revoke' }}
+              </button>
               <button
                 v-else-if="tokenStatus(token) === 'revoked'"
                 class="btn btn-sm btn-secondary"
                 :disabled="actioningId === token.id"
                 @click="openConfirm(token, 'unrevoke')"
-              >{{ actioningId === token.id ? 'Unrevoking…' : 'Unrevoke' }}</button>
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                {{ actioningId === token.id ? 'Unrevoking…' : 'Unrevoke' }}
+              </button>
               <span v-else class="muted">—</span>
             </td>
           </tr>

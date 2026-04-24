@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 interface ProviderCount { provider: string; count: number }
-const props = defineProps<{ providers: ProviderCount[] }>()
+const props = defineProps<{ providers: ProviderCount[]; loading?: boolean }>()
 
 const total = computed(() => props.providers.reduce((s, p) => s + p.count, 0))
 
@@ -22,7 +22,8 @@ function fmtNum(n: number) {
       <h2 class="chart-title">Requests by Provider</h2>
       <span class="top-badge">Top 5</span>
     </div>
-    <div v-if="providers.length === 0" class="no-data">No requests recorded yet.</div>
+    <div v-if="loading" class="list-skeleton"><div v-for="i in 3" :key="i" class="list-skeleton-row" /></div>
+    <div v-else-if="providers.length === 0" class="no-data">No requests recorded yet.</div>
     <div v-else class="provider-list">
       <div v-for="p in providers" :key="p.provider" class="provider-row">
         <div class="provider-meta">
@@ -65,4 +66,18 @@ function fmtNum(n: number) {
 .provider-pct   { color: #94a3b8; font-size: 0.78rem; }
 .provider-bar-track { height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
 .provider-bar-fill  { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+
+.list-skeleton { display: flex; flex-direction: column; gap: 0.85rem; }
+.list-skeleton-row {
+  height: 36px; border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.list-skeleton-row:nth-child(2) { animation-delay: 0.1s; }
+.list-skeleton-row:nth-child(3) { animation-delay: 0.2s; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

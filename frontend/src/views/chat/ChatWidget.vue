@@ -14,6 +14,35 @@ const messagesEl = ref<HTMLElement | null>(null)
 const panelRef   = ref<HTMLElement | null>(null)
 const fabRef     = ref<HTMLElement | null>(null)
 
+// ── resize ──────────────────────────────────────────────────────────────────
+const panelWidth  = ref(400)
+const panelHeight = ref(560)
+
+let _resizing = false
+let _resizeDir = ''
+let _startX = 0, _startY = 0, _startW = 0, _startH = 0
+
+function startResize(dir: string, e: MouseEvent) {
+  _resizing  = true
+  _resizeDir = dir
+  _startX = e.clientX
+  _startY = e.clientY
+  _startW = panelWidth.value
+  _startH = panelHeight.value
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+function onResizeMove(e: MouseEvent) {
+  if (!_resizing) return
+  if (_resizeDir.includes('w'))
+    panelWidth.value  = Math.max(320, Math.min(860, _startW + (_startX - e.clientX)))
+  if (_resizeDir.includes('n'))
+    panelHeight.value = Math.max(380, Math.min(900, _startH + (_startY - e.clientY)))
+}
+
+function onResizeUp() { _resizing = false }
+
 // ── provider / model setup ──────────────────────────────────────────────────
 const availableProviders = ref<{ id: string; label: string }[]>([])
 const modelList          = ref<string[]>([])
@@ -69,9 +98,15 @@ function handleOutsideClick(e: MouseEvent) {
 
 onMounted(async () => {
   document.addEventListener('mousedown', handleOutsideClick)
+  document.addEventListener('mousemove', onResizeMove)
+  document.addEventListener('mouseup', onResizeUp)
   await initProviders()
 })
-onBeforeUnmount(() => document.removeEventListener('mousedown', handleOutsideClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', handleOutsideClick)
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeUp)
+})
 
 // ── auto-scroll ─────────────────────────────────────────────────────────────
 function scrollToBottom() {
@@ -260,6 +295,13 @@ const isLastStreaming = computed(() =>
 </script>
 
 <template>
+  <!-- backdrop -->
+  <Teleport to="body">
+    <Transition name="backdrop">
+      <div v-if="open" class="chat-backdrop" @click="open = false" />
+    </Transition>
+  </Teleport>
+
   <!-- floating action button -->
   <button v-if="hasProviders !== false" ref="fabRef" class="fab" :class="{ active: open }" @click="toggleOpen" aria-label="Open chat">
     <svg v-if="!open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -272,7 +314,13 @@ const isLastStreaming = computed(() =>
 
   <!-- chat panel -->
   <Transition name="panel">
-    <div v-if="open" ref="panelRef" class="chat-panel" :class="{ glitching }">
+    <div v-if="open" ref="panelRef" class="chat-panel" :class="{ glitching }"
+      :style="{ width: panelWidth + 'px', height: panelHeight + 'px' }">
+      <!-- resize handles -->
+      <div class="resize-handle resize-n"  @mousedown="startResize('n',  $event)" />
+      <div class="resize-handle resize-w"  @mousedown="startResize('w',  $event)" />
+      <div class="resize-handle resize-nw" @mousedown="startResize('nw', $event)" />
+
       <!-- header -->
       <div class="chat-header">
         <span class="chat-title">AI Chat</span>
@@ -353,6 +401,19 @@ const isLastStreaming = computed(() =>
 </template>
 
 <style scoped>
+/* ── Backdrop ── */
+.chat-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(1px);
+}
+.backdrop-enter-active,
+.backdrop-leave-active { transition: opacity 0.2s ease; }
+.backdrop-enter-from,
+.backdrop-leave-to { opacity: 0; }
+
 /* ── FAB ── */
 .fab {
   position: fixed;
@@ -387,8 +448,7 @@ const isLastStreaming = computed(() =>
   bottom: 5.5rem;
   right: 1.75rem;
   z-index: 999;
-  width: 400px;
-  height: 560px;
+  /* width + height set via inline style (reactive) */
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -396,6 +456,43 @@ const isLastStreaming = computed(() =>
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* ── resize handles ── */
+.resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+.resize-n {
+  top: 0; left: 12px; right: 12px;
+  height: 6px;
+  cursor: n-resize;
+}
+.resize-w {
+  left: 0; top: 12px; bottom: 12px;
+  width: 6px;
+  cursor: w-resize;
+}
+.resize-nw {
+  top: 0; left: 0;
+  width: 22px; height: 22px;
+  cursor: nw-resize;
+  border-radius: 16px 0 0 0;
+}
+.resize-nw::before,
+.resize-nw::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+/* three diagonal grip lines */
+.resize-nw::after {
+  top: 8px; left: 8px;
+  width: 10px; height: 10px;
+  background:
+    linear-gradient(135deg, transparent 30%, #94a3b8 30%, #94a3b8 40%, transparent 40%),
+    linear-gradient(135deg, transparent 50%, #94a3b8 50%, #94a3b8 60%, transparent 60%),
+    linear-gradient(135deg, transparent 70%, #94a3b8 70%, #94a3b8 80%, transparent 80%);
 }
 
 /* ── header ── */

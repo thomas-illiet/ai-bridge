@@ -65,6 +65,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .main-content {
@@ -81,16 +82,16 @@ body {
   justify-content: center;
   gap: 0.6rem;
   padding: 1rem 2rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: 1px solid #334155;
+  background: #1e293b;
   font-size: 0.8rem;
   color: #94a3b8;
 }
 
-.footer-slogan { letter-spacing: 0.01em; }
-.footer-highlight { color: #3b82f6; font-weight: 600; }
-.footer-sep { color: #cbd5e1; }
-.footer-copy { font-variant-numeric: tabular-nums; }
+.footer-slogan { letter-spacing: 0.01em; color: #94a3b8; }
+.footer-highlight { color: #f1f5f9; font-weight: 700; }
+.footer-sep { color: #334155; }
+.footer-copy { font-variant-numeric: tabular-nums; color: #64748b; }
 
 .error-page {
   flex: 1;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { adminListAccessRequests, adminApproveRequest, adminRejectRequest } from '@/services/api'
 import type { AccessRequest } from '@/services/api'
@@ -11,6 +11,13 @@ const requests    = ref<AccessRequest[]>([])
 const pendingCount = ref(0)
 const { loading, withLoad } = useMinLoad(300, true)
 const statusFilter = ref('pending')
+const search       = ref('')
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => load(), 300)
+})
 const sortBy      = ref('created_at')
 const sortDir     = ref<'asc' | 'desc'>('desc')
 
@@ -29,7 +36,7 @@ const saving       = ref(false)
 
 async function load() {
   await withLoad(async () => {
-    const res = await adminListAccessRequests(statusFilter.value || undefined, sortBy.value, sortDir.value)
+    const res = await adminListAccessRequests(statusFilter.value || undefined, sortBy.value, sortDir.value, search.value)
     requests.value   = res.data.requests ?? []
     pendingCount.value = res.data.pendingCount
   })
@@ -82,19 +89,25 @@ onMounted(load)
 </script>
 
 <template>
+  <Teleport defer to="#admin-search-portal">
+    <div class="portal-controls">
+      <select v-model="statusFilter" class="portal-select" @change="load">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <div class="portal-search-wrap">
+        <svg class="portal-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="search" type="text" placeholder="Search user or reason…" class="portal-input" />
+      </div>
+    </div>
+  </Teleport>
+
   <div class="tab-content">
     <div class="card">
     <div class="card-header">
-      <h2 class="card-title">Access Requests</h2>
-      <div class="header-actions">
-        <p class="sub">{{ pendingCount }} pending request{{ pendingCount !== 1 ? 's' : '' }}.</p>
-        <select v-model="statusFilter" class="role-select" @change="load">
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
+      <h2 class="card-title">Access Requests <span class="title-count">{{ pendingCount }} pending</span></h2>
     </div>
 
     <div v-if="!loading && requests.length === 0" class="empty-card">
@@ -143,8 +156,14 @@ onMounted(load)
             </td>
             <td class="actions-cell">
               <template v-if="req.status === 'pending'">
-                <button class="btn-approve" @click="openApprove(req)">Approve</button>
-                <button class="btn-reject"  @click="openReject(req)">Reject</button>
+                <button class="btn-approve" @click="openApprove(req)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Approve
+                </button>
+                <button class="btn-reject" @click="openReject(req)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  Reject
+                </button>
               </template>
               <span v-else-if="req.status === 'rejected' && req.reviewNote" class="review-note-tip" :title="req.reviewNote">
                 Note
@@ -178,8 +197,12 @@ onMounted(load)
           </div>
 
           <div class="modal-actions">
-            <button class="btn-cancel" @click="approveModal = null">Cancel</button>
+            <button class="btn-cancel" @click="approveModal = null">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
             <button class="btn-approve" :disabled="saving" @click="approve">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               {{ saving ? 'Approving…' : 'Approve' }}
             </button>
           </div>
@@ -198,8 +221,12 @@ onMounted(load)
           </div>
 
           <div class="modal-actions">
-            <button class="btn-cancel" @click="rejectModal = null">Cancel</button>
+            <button class="btn-cancel" @click="rejectModal = null">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
             <button class="btn-reject" :disabled="saving || !rejectNote.trim()" @click="reject">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               {{ saving ? 'Rejecting…' : 'Reject' }}
             </button>
           </div>
@@ -218,10 +245,10 @@ onMounted(load)
 .status-badge.pending  { background: #fef3c7; color: #92400e; }
 .status-badge.approved { background: #d1fae5; color: #065f46; }
 .status-badge.rejected { background: #fee2e2; color: #991b1b; }
-.btn-approve { padding: 0.2rem 0.65rem; border: none; border-radius: 6px; background: #d1fae5; color: #065f46; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-right: 0.4rem; }
+.btn-approve { display: inline-flex; align-items: center; gap: 0.35em; padding: 0.2rem 0.65rem; border: none; border-radius: 6px; background: #d1fae5; color: #065f46; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-right: 0.4rem; }
 .btn-approve:hover:not(:disabled) { background: #6ee7b7; }
 .btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-reject { padding: 0.2rem 0.65rem; border: none; border-radius: 6px; background: #fee2e2; color: #991b1b; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.btn-reject { display: inline-flex; align-items: center; gap: 0.35em; padding: 0.2rem 0.65rem; border: none; border-radius: 6px; background: #fee2e2; color: #991b1b; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 .btn-reject:hover:not(:disabled) { background: #fca5a5; }
 .btn-reject:disabled { opacity: 0.5; cursor: not-allowed; }
 .review-note-tip { font-size: 0.75rem; color: #64748b; cursor: help; text-decoration: underline dotted; }

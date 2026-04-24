@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import OverviewTab         from './admin/OverviewTab.vue'
 import UsersTab           from './admin/UsersTab.vue'
-import WhitelistTab        from './admin/WhitelistTab.vue'
+import FirewallTab         from './admin/FirewallTab.vue'
 import TokensTab           from './admin/TokensTab.vue'
 import HistoryTab          from './admin/HistoryTab.vue'
 import RequestsTab         from './admin/RequestsTab.vue'
@@ -14,7 +14,7 @@ import { adminListAccessRequests } from '@/services/api'
 
 const auth = useAuthStore()
 
-type Tab = 'overview' | 'requests' | 'users' | 'whitelist' | 'tokens' | 'service-accounts' | 'history' | 'providers' | 'mcp'
+type Tab = 'overview' | 'requests' | 'users' | 'firewall' | 'tokens' | 'service-accounts' | 'history' | 'providers' | 'mcp'
 const activeTab    = ref<Tab>('overview')
 const pendingCount = ref(0)
 
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Security',
     items: [
-      { id: 'whitelist', label: 'IP Whitelist', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', adminOnly: true },
+      { id: 'firewall', label: 'Firewall', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z', adminOnly: true },
       { id: 'providers', label: 'Providers',    icon: 'M22 12h-4l-3 9L9 3l-3 9H2',               adminOnly: true },
       { id: 'mcp',       label: 'MCP Servers',  icon: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', adminOnly: true },
     ],
@@ -102,7 +102,7 @@ function visibleItems(items: NavItem[]) {
             <template v-if="activeTab === 'overview'">Global activity metrics, service status, and platform health.</template>
             <template v-else-if="activeTab === 'requests'">Review and approve or reject user access requests.</template>
             <template v-else-if="activeTab === 'users'">Manage registered users and their roles.</template>
-            <template v-else-if="activeTab === 'whitelist'">Restrict proxy access to specific IP addresses or CIDR ranges.</template>
+            <template v-else-if="activeTab === 'firewall'">Define allow/deny firewall rules to control proxy access by IP address or CIDR range.</template>
             <template v-else-if="activeTab === 'providers'">Configure AI provider backends available through the proxy.</template>
             <template v-else-if="activeTab === 'mcp'">Manage MCP servers for centralized tool injection into proxied AI requests.</template>
             <template v-else-if="activeTab === 'tokens'">View and revoke all user API tokens.</template>
@@ -116,7 +116,7 @@ function visibleItems(items: NavItem[]) {
       <OverviewTab        v-if="activeTab === 'overview'" />
       <RequestsTab        v-if="activeTab === 'requests'" />
       <UsersTab           v-if="activeTab === 'users'" />
-      <WhitelistTab       v-if="activeTab === 'whitelist' && auth.isAdmin" />
+      <FirewallTab        v-if="activeTab === 'firewall' && auth.isAdmin" />
       <TokensTab          v-if="activeTab === 'tokens'" />
       <ServiceAccountsTab v-if="activeTab === 'service-accounts' && auth.isAdmin" />
       <ProvidersTab       v-if="activeTab === 'providers' && auth.isAdmin" />

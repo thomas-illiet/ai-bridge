@@ -21,6 +21,7 @@ defineEmits<{ close: [] }>()
               {{ detail.provider }}
             </span>
             <span class="meta-info">{{ formatDate(detail.startedAt) }} · {{ interceptionDuration(detail) }}</span>
+            <span v-if="detail.clientIp" class="meta-ip">{{ detail.clientIp }}</span>
           </div>
           <div v-else class="muted">Loading…</div>
           <button class="modal-close" @click="$emit('close')">✕</button>
@@ -74,6 +75,7 @@ defineEmits<{ close: [] }>()
 .modal-close:hover { background: #f1f5f9; }
 .muted { color: #64748b; }
 .meta-info { font-size: 0.8rem; color: #94a3b8; margin-left: 0.5rem; }
+.meta-ip { font-size: 0.78rem; font-family: monospace; color: #94a3b8; margin-left: 0.5rem; background: #f1f5f9; padding: 0.1rem 0.4rem; border-radius: 4px; }
 .prov-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: capitalize; margin-left: 0.4rem; }
 .token-row { display: flex; gap: 0.75rem; }
 .token-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.2rem; }

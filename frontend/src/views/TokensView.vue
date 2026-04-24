@@ -112,8 +112,22 @@ function daysUntilExpiry(token: ClientToken): number {
           <span class="toggle-switch" />
           Show inactive
         </label>
-        <button class="btn btn-primary" @click="showCreateModal = true">New Token</button>
+        <button class="btn btn-primary" @click="showCreateModal = true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Token
+        </button>
       </div>
+    </div>
+
+    <div class="usage-notice">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="notice-icon">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <p>
+        <strong>All API usage made with your tokens is logged and attributed to your account.</strong>
+        You are solely responsible for any requests sent using tokens you generate — including their content, volume, and associated costs.
+        Keep your tokens confidential and revoke any that are no longer needed.
+      </p>
     </div>
 
     <div v-if="!store.error && (store.tokens.length > 0 || !store.loading)" class="stat-grid">
@@ -270,4 +284,18 @@ h1 { font-size: 1.75rem; font-weight: 700; }
 /* badge border-radius override: square corners for status badges in this table */
 .badge { border-radius: 4px; }
 .subtitle { font-size: 0.85rem; color: #64748b; margin: 0.2rem 0 0; }
+.usage-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 0.9rem 1.25rem;
+  font-size: 0.875rem;
+  color: #1e40af;
+  line-height: 1.6;
+}
+.usage-notice p { margin: 0; }
+.notice-icon { flex-shrink: 0; margin-top: 2px; color: #3b82f6; }
 </style>

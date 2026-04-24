@@ -52,7 +52,10 @@ async function copy() {
             </button>
           </div>
           <div class="modal-actions">
-            <button class="btn btn-primary" @click="emit('close')">I have saved my token</button>
+            <button class="btn btn-primary" @click="emit('close')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              I have saved my token
+            </button>
           </div>
         </div>
       </Transition>

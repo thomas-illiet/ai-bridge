@@ -3,12 +3,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { listProviders, createProvider, updateProvider, deleteProvider, reloadProviders, type AIProvider } from '@/services/api'
 import { formatDate } from '@/utils/format'
 import PaginationBar from '@/components/PaginationBar.vue'
+import LoadingOverlay from '@/components/LoadingOverlay.vue'
 import { useMinLoad } from '@/composables/useMinLoad'
 
 const providers     = ref<AIProvider[]>([])
 const { loading, withLoad } = useMinLoad(300, true)
 const error         = ref<string | null>(null)
-const reloading     = ref(false)
+const { loading: reloading, withLoad: withReload } = useMinLoad(1200)
 
 // ── Add/Edit modal ──────────────────────────────────────────────────────────
 const showForm  = ref(false)
@@ -106,7 +107,15 @@ async function confirmDelete() {
   }
 }
 
-// ── Table / sort / pagination ─────────────────────────────────────────────────
+// ── Search + sort + pagination ────────────────────────────────────────────────
+const search = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  page.value = 1
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadProviders(), 300)
+})
+
 const page     = ref(1)
 const pageSize = ref(10)
 watch(pageSize, () => { page.value = 1 })
@@ -131,7 +140,7 @@ async function loadProviders() {
   error.value = null
   await withLoad(async () => {
     try {
-      const res = await listProviders()
+      const res = await listProviders(search.value)
       let list = res.data.providers ?? []
       list = [...list].sort((a, b) => {
         const av = (a as any)[sortBy.value] ?? ''
@@ -156,31 +165,43 @@ async function toggleEnabled(p: AIProvider) {
 }
 
 async function forceReload() {
-  reloading.value = true
-  try {
-    await reloadProviders()
-  } catch (e: any) {
-    error.value = e?.response?.data?.error ?? 'Failed to reload bridge'
-  } finally {
-    reloading.value = false
-  }
+  await withReload(async () => {
+    try {
+      await reloadProviders()
+    } catch (e: any) {
+      error.value = e?.response?.data?.error ?? 'Failed to reload bridge'
+    }
+  })
 }
 
 onMounted(loadProviders)
 </script>
 
 <template>
+  <Teleport defer to="#admin-search-portal">
+    <div class="portal-search-wrap">
+      <svg class="portal-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input v-model="search" type="text" placeholder="Search providers…" class="portal-input" />
+    </div>
+  </Teleport>
+
   <div class="tab-content">
+
+    <LoadingOverlay :visible="reloading" message="Reloading providers…" />
 
     <!-- ── Providers table card ─────────────────────────────────────────── -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Provider entries</h2>
+        <h2 class="card-title">Provider entries <span class="title-count">{{ providers.length }}</span></h2>
         <div class="header-actions">
           <button v-if="!isEmpty" class="btn btn-secondary btn-sm" :disabled="reloading" @click="forceReload">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             {{ reloading ? 'Reloading…' : 'Force Reload' }}
           </button>
-          <button class="btn btn-primary btn-sm" @click="openAdd">Add Provider</button>
+          <button class="btn btn-primary btn-sm" @click="openAdd">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Provider
+          </button>
         </div>
       </div>
 
@@ -251,8 +272,14 @@ onMounted(loadProviders)
               </td>
               <td class="muted">{{ formatDate(p.createdAt) }}</td>
               <td class="actions">
-                <button class="btn btn-sm btn-secondary" @click="openEdit(p)">Edit</button>
-                <button class="btn btn-sm btn-danger" @click="openDelete(p)">Delete</button>
+                <button class="btn btn-sm btn-secondary" @click="openEdit(p)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Edit
+                </button>
+                <button class="btn btn-sm btn-danger" @click="openDelete(p)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  Delete
+                </button>
               </td>
             </tr>
           </template>
@@ -307,8 +334,12 @@ onMounted(loadProviders)
           <p v-if="formError" class="form-error">{{ formError }}</p>
 
           <div class="modal-actions">
-            <button class="btn btn-outline" @click="closeForm">Cancel</button>
+            <button class="btn btn-outline" @click="closeForm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
             <button class="btn btn-primary-solid" :disabled="saving" @click="submitForm">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               {{ saving ? 'Saving…' : (editingId ? 'Update' : 'Add') }}
             </button>
           </div>
@@ -330,8 +361,12 @@ onMounted(loadProviders)
           </p>
           <p v-if="delError" class="form-error">{{ delError }}</p>
           <div class="modal-actions">
-            <button class="btn btn-outline" @click="closeDelete">Cancel</button>
+            <button class="btn btn-outline" @click="closeDelete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancel
+            </button>
             <button class="btn btn-danger-solid" :disabled="deleting" @click="confirmDelete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
               {{ deleting ? 'Deleting…' : 'Delete' }}
             </button>
           </div>
@@ -395,17 +430,8 @@ onMounted(loadProviders)
 
 .form-error { color: #ef4444; font-size: 0.85rem; margin: 0; }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-.btn { padding: 0.45rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
-.btn-outline { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
-.btn-outline:hover { background: #f1f5f9; }
-.btn-primary-solid { background: #3b82f6; color: white; }
+/* ── Buttons (scoped — only what shared.css doesn't cover) ───────────────── */
+.btn-primary-solid { display: inline-flex; align-items: center; gap: 0.35em; background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 0.4rem 1rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
 .btn-primary-solid:hover:not(:disabled) { background: #2563eb; }
 .btn-primary-solid:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-danger-solid { background: #dc2626; color: white; }
-.btn-danger-solid:hover:not(:disabled) { background: #b91c1c; }
-.btn-danger-solid:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.4rem 0.9rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; }
-.btn-secondary:hover:not(:disabled) { background: #e2e8f0; }
-.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

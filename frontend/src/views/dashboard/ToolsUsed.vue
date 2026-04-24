@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 interface ToolCount { tool: string; count: number }
-const props = defineProps<{ tools: ToolCount[] }>()
+const props = defineProps<{ tools: ToolCount[]; loading?: boolean }>()
 
 const total = computed(() => props.tools.reduce((s, t) => s + t.count, 0))
 
@@ -27,7 +27,8 @@ function shortName(tool: string) {
       <h2 class="chart-title">Tools Used</h2>
       <span class="top-badge">Top 8</span>
     </div>
-    <div v-if="tools.length === 0" class="no-data">No tool calls recorded yet.</div>
+    <div v-if="loading" class="list-skeleton"><div v-for="i in 3" :key="i" class="list-skeleton-row" /></div>
+    <div v-else-if="tools.length === 0" class="no-data">No tool calls recorded yet.</div>
     <div v-else class="tool-list">
       <div v-for="(t, i) in tools" :key="t.tool" class="tool-row">
         <div class="tool-meta">
@@ -79,4 +80,18 @@ function shortName(tool: string) {
 .tool-pct   { color: #94a3b8; font-size: 0.78rem; }
 .tool-bar-track { height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
 .tool-bar-fill  { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+
+.list-skeleton { display: flex; flex-direction: column; gap: 0.85rem; }
+.list-skeleton-row {
+  height: 36px; border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.list-skeleton-row:nth-child(2) { animation-delay: 0.1s; }
+.list-skeleton-row:nth-child(3) { animation-delay: 0.2s; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

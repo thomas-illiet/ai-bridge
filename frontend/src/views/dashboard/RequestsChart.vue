@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 interface DailyCount { date: string; count: number }
-const props = defineProps<{ days: DailyCount[] }>()
+const props = defineProps<{ days: DailyCount[]; loading?: boolean }>()
 
 const barMax = computed(() => Math.max(1, ...props.days.map(d => d.count)))
 
@@ -23,7 +23,8 @@ function shortDate(iso: string) {
 <template>
   <div class="chart-card">
     <h2 class="chart-title">Requests — Last 7 Days</h2>
-    <div class="bar-chart">
+    <div v-if="loading" class="chart-skeleton" />
+    <div v-else class="bar-chart">
       <div v-for="day in days" :key="day.date" class="bar-col">
         <span class="bar-value">{{ day.count > 0 ? fmtNum(day.count) : '' }}</span>
         <div class="bar" :style="{ height: barHeight(day.count) + 'px' }" :class="{ 'bar-zero': day.count === 0 }" />
@@ -72,4 +73,16 @@ function shortDate(iso: string) {
 }
 .bar.bar-zero { background: #e2e8f0; }
 .bar-label { position: absolute; bottom: -20px; font-size: 0.62rem; color: #94a3b8; white-space: nowrap; }
+
+.chart-skeleton {
+  height: 131px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

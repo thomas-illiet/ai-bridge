@@ -48,13 +48,18 @@ async function confirm() {
         </p>
         <p v-if="error" class="error-msg">{{ error }}</p>
         <div class="modal-actions">
-          <button class="btn btn-outline" @click="emit('close')">Cancel</button>
+          <button class="btn btn-outline" @click="emit('close')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Cancel
+          </button>
           <button
             class="btn"
             :class="isRevoke() ? 'btn-danger-solid' : 'btn-primary'"
             :disabled="loading"
             @click="confirm"
           >
+            <svg v-if="isRevoke()" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
             {{ loading ? (isRevoke() ? 'Revoking…' : 'Restoring…') : (isRevoke() ? 'Revoke token' : 'Unrevoke token') }}
           </button>
         </div>

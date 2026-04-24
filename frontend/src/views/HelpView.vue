@@ -63,13 +63,13 @@ const activeTab = ref<'openwebui' | 'opencode' | 'n8n' | 'python' | 'curl' | 'cl
 
 const tabs = computed(() =>
   providerType.value === 'anthropic'
-    ? [{ id: 'claude' as const, label: 'Claude' }]
+    ? [{ id: 'claude' as const, label: 'Claude Code', icon: '◆' }]
     : [
-        { id: 'openwebui' as const, label: 'Open WebUI' },
-        { id: 'opencode'  as const, label: 'OpenCode' },
-        { id: 'n8n'       as const, label: 'n8N' },
-        { id: 'python'    as const, label: 'Python' },
-        { id: 'curl'      as const, label: 'cURL' },
+        { id: 'openwebui' as const, label: 'Open WebUI', icon: '◉' },
+        { id: 'opencode'  as const, label: 'OpenCode',   icon: '◈' },
+        { id: 'n8n'       as const, label: 'n8N',        icon: '⬡' },
+        { id: 'python'    as const, label: 'Python',     icon: '⬢' },
+        { id: 'curl'      as const, label: 'cURL',       icon: '▶' },
       ]
 )
 
@@ -81,20 +81,9 @@ watch(providerType, (type) => {
 <template>
   <div class="help-page">
     <div class="page-header">
-      <div>
+      <div class="header-text">
         <h1>Integration Guide</h1>
-        <p class="subtitle">Connect your tools to AI Bridge.</p>
-      </div>
-
-      <div v-if="!loading && providers.length > 0" class="provider-selector">
-        <span class="provider-label">Provider</span>
-        <select
-          class="provider-select"
-          :value="selectedProvider?.name"
-          @change="selectedProvider = providers.find(p => p.name === ($event.target as HTMLSelectElement).value) ?? null"
-        >
-          <option v-for="p in providers" :key="p.name" :value="p.name">{{ p.name }} — {{ p.type }}</option>
-        </select>
+        <p class="subtitle">Connect your tools and apps to AI Bridge in minutes.</p>
       </div>
     </div>
 
@@ -130,6 +119,22 @@ watch(providerType, (type) => {
     </div>
 
     <template v-if="!loading && providers.length > 0 && selectedProvider">
+      <div class="provider-section">
+        <span class="section-label">Provider</span>
+        <div class="provider-pills">
+          <button
+            v-for="p in providers"
+            :key="p.name"
+            class="provider-pill"
+            :class="[`type-${p.type}`, { active: selectedProvider?.name === p.name }]"
+            @click="selectedProvider = p"
+          >
+            <span class="pill-name">{{ p.name }}</span>
+            <span class="pill-type">{{ p.type }}</span>
+          </button>
+        </div>
+      </div>
+
       <EndpointBanner
         :active-url="activeURL"
         :active-model="activeModel"
@@ -138,17 +143,22 @@ watch(providerType, (type) => {
         v-model:selected-model="selectedModel"
       />
 
-      <div class="tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="tab-btn"
-          :class="{ active: activeTab === tab.id }"
-          @click="activeTab = tab.id"
-        >{{ tab.label }}</button>
+      <div class="tabs-wrapper">
+        <div class="tabs">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            class="tab-btn"
+            :class="{ active: activeTab === tab.id }"
+            @click="activeTab = tab.id"
+          >
+            <span class="tab-icon">{{ tab.icon }}</span>
+            {{ tab.label }}
+          </button>
+        </div>
       </div>
 
-      <TabClaude    v-if="activeTab === 'claude'"     :active-url="activeURL" :active-model="activeModel" />
+      <TabClaude    v-if="activeTab === 'claude'"    :active-url="activeURL" :active-model="activeModel" />
       <TabOpenWebUI v-if="activeTab === 'openwebui'" :active-url="activeURL" :provider="providerType" />
       <TabOpenCode  v-if="activeTab === 'opencode'"  :active-url="activeURL" :active-model="activeModel" :provider="providerType" />
       <TabN8n       v-if="activeTab === 'n8n'"       :active-url="activeURL" :active-model="activeModel" :provider="providerType" />
@@ -159,8 +169,9 @@ watch(providerType, (type) => {
 </template>
 
 <style scoped>
-.help-page { display: flex; flex-direction: column; gap: 1.5rem; }
+.help-page { display: flex; flex-direction: column; gap: 1.25rem; }
 
+/* Header */
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -168,23 +179,47 @@ watch(providerType, (type) => {
   gap: 1rem;
   flex-wrap: wrap;
 }
-.page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.25rem; }
+.page-header h1 { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.25rem; color: #0f172a; }
 .subtitle { color: #64748b; font-size: 0.95rem; margin: 0; }
 
-.provider-selector { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
-.provider-label { font-size: 0.8rem; font-weight: 600; color: #64748b; white-space: nowrap; }
+/* Provider pills */
+.provider-section { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.section-label { font-size: 0.8rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+.provider-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-.provider-select {
-  font-size: 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0.4rem 0.75rem;
-  color: #1e293b;
-  background: white;
+.provider-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
   cursor: pointer;
-  outline: none;
+  transition: all 0.15s;
+  font-size: 0.875rem;
+  color: #475569;
+  font-weight: 500;
 }
-.provider-select:focus { border-color: #3b82f6; }
+.provider-pill:hover { border-color: #cbd5e1; background: #f8fafc; color: #1e293b; }
+.provider-pill.active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; }
+.provider-pill.active .pill-type { background: #bfdbfe; color: #1d4ed8; }
+
+.pill-name { font-weight: 600; }
+.pill-type {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+.type-anthropic.active { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+.type-anthropic.active .pill-type { background: #fde68a; color: #92400e; }
+.type-ollama.active { border-color: #8b5cf6; background: #f5f3ff; color: #5b21b6; }
+.type-ollama.active .pill-type { background: #ddd6fe; color: #5b21b6; }
 
 /* Loading */
 .loading-state {
@@ -241,11 +276,11 @@ watch(providerType, (type) => {
 .empty-step strong { color: #1e293b; }
 .step-num {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #e2e8f0;
-  color: #475569;
+  background: #3b82f6;
+  color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
   display: flex;
@@ -254,19 +289,27 @@ watch(providerType, (type) => {
 }
 
 /* Tabs */
-.tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid #e2e8f0; }
+.tabs-wrapper {
+  border-bottom: 1px solid #e2e8f0;
+}
+.tabs { display: flex; gap: 0.25rem; }
 .tab-btn {
-  padding: 0.5rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: #64748b;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
-.tab-btn:hover { color: #1e293b; }
-.tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+.tab-btn:hover { color: #1e293b; background: #f8fafc; }
+.tab-btn.active { color: #2563eb; border-bottom-color: #3b82f6; background: #eff6ff; }
+.tab-icon { font-size: 0.7rem; opacity: 0.7; }
 </style>
